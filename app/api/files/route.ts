@@ -1,0 +1,4 @@
+import {env} from 'cloudflare:workers';
+import {owner,sameOrigin} from '@/lib/access';
+import {insert,database,event} from '@/lib/store';
+export async function POST(req:Request){try{const u=await owner();sameOrigin(req);const f=(await req.formData()).get('file');if(!(f instanceof File)||!f.size||f.size>15*1024*1024)throw new Error('Choose a file up to 15 MB');if(!/\.(pdf|csv|xlsx|png|jpe?g|webp)$/i.test(f.name))throw new Error('Unsupported file type');const id=crypto.randomUUID(),key=u.userId+'/'+id;await env.BUCKET!.put(key,f.stream(),{httpMetadata:{contentType:'application/octet-stream'}});const x=insert(u.userId,'documents',{name:f.name,key,size:f.size,mime:f.type},'',id);try{await database().batch([x.statement,event(u.userId,id,'uploaded',f.name)]);}catch(e){await env.BUCKET!.delete(key);throw e;}return Response.json({id});}catch(e:any){return Response.json({error:e.message},{status:400});}}
