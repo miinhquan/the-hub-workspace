@@ -67,3 +67,5 @@ Tests cover archive exclusions and boundary timing, owner scope, stale writes, a
 Read [Vietnamese setup guide](docs/SETUP-SUBDOMAIN.vi.md) and [security notes](docs/SECURITY.md). This ZIP contains source code. It cannot be deployed by dropping only index.html into the existing public Worker.
 
 `docs/legacy-starter/` preserves the prior localStorage prototype for reference only. It is not the served application. Do not deploy that old index.html.
+
+Production domain: ws.thehub.express
