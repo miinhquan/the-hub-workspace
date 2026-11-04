@@ -1,0 +1,14 @@
+import {env} from 'cloudflare:workers';
+import type {RecordItem,Kind} from './domain';
+import {isStale} from './domain';
+export const database=()=>env.DB!;
+const map=(r:any):RecordItem=>({id:r.id,kind:r.kind,data:JSON.parse(r.data),status:r.status,version:r.version,createdAt:r.created_at,updatedAt:r.updated_at,lastActivity:r.last_activity,archivedAt:r.archived_at,previousStatus:r.previous_status});
+export async function allRecords(owner:string){return (await database().prepare('SELECT * FROM records WHERE owner=? ORDER BY created_at DESC').bind(owner).all()).results.map(map);}
+export async function one(owner:string,id:string){const r=await database().prepare('SELECT * FROM records WHERE owner=? AND id=?').bind(owner,id).first();if(!r)throw new Error('Record not found');return map(r);}
+export function event(owner:string,id:string,type:string,detail:string,actor=owner,at=new Date().toISOString()){return database().prepare('INSERT INTO events(id,owner,record_id,event,detail,actor,at) VALUES(?,?,?,?,?,?,?)').bind(crypto.randomUUID(),owner,id,type,detail,actor,at);}
+export function insert(owner:string,kind:Kind,data:any,status:string,id=crypto.randomUUID(),at=new Date().toISOString()) {return {id,statement:database().prepare('INSERT INTO records(id,owner,kind,data,status,last_activity,created_at,updated_at,mutation) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,owner,kind,JSON.stringify(data),status,at,at,at,crypto.randomUUID())};}
+export async function update(owner:string,record:RecordItem,data:any,status:string,type:string,detail:string,archive?:{archivedAt:string|null,previousStatus:string|null},touch=true){const at=new Date().toISOString(),mutation=crypto.randomUUID();const result=await database().batch([
+ database().prepare('UPDATE records SET data=?,status=?,last_activity=?,archived_at=?,previous_status=?,updated_at=?,version=version+1,mutation=? WHERE id=? AND owner=? AND version=?').bind(JSON.stringify(data),status,touch?at:record.lastActivity,archive?archive.archivedAt:record.archivedAt,archive?archive.previousStatus:record.previousStatus,at,mutation,record.id,owner,record.version),
+ database().prepare('INSERT INTO events(id,owner,record_id,event,detail,actor,at) SELECT ?,owner,id,?,?,?,? FROM records WHERE id=? AND owner=? AND mutation=?').bind(crypto.randomUUID(),type,detail,owner,at,record.id,owner,mutation)
+ ]);if(!result[0].meta.changes)throw new Error('This record changed in another tab. Refresh and try again.');}
+export async function archiveStale(owner:string){const all=await allRecords(owner);let count=0;for(const r of all.filter(x=>isStale(x,all))){const at=new Date().toISOString();await update(owner,r,{...r.data,archiveReason:'inactivity_timeout'},'Archived','auto_archived',JSON.stringify({reason:'inactivity_timeout',thresholdHours:48,lastActivity:r.lastActivity}),{archivedAt:at,previousStatus:r.status},false);count++;}return count;}

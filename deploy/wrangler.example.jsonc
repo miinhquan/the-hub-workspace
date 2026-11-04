@@ -1,0 +1,21 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "the-hub-workspace",
+  "main": "../dist/server/index.js",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "no_bundle": true,
+  "rules": [{"type":"ESModule","globs":["**/*.js","**/*.mjs"]}],
+  "assets": {"directory":"../dist/client"},
+  "workers_dev": false,
+  "preview_urls": false,
+  "d1_databases": [{"binding":"DB","database_name":"the-hub-workspace","database_id":"REPLACE_WITH_D1_DATABASE_ID","migrations_dir":"../drizzle"}],
+  "r2_buckets": [{"binding":"BUCKET","bucket_name":"the-hub-workspace-documents"}],
+  "vars": {
+    "WHATSAPP_PHONE_NUMBER_ID":"1419832964551265",
+    "WHATSAPP_BUSINESS_ACCOUNT_ID":"1101695832558898",
+    "WHATSAPP_GRAPH_VERSION":"v25.0"
+  },
+  "triggers": {"crons":["*/5 * * * *"]},
+  "observability": {"enabled":true}
+}

@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import {createRequire} from 'node:module';
+import {DatabaseSync} from 'node:sqlite';
+const require=createRequire(import.meta.url);
+function moduleTS(path,imports={}){const exports={};const source=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;new Function('require','exports',source)(name=>imports[name]??require(name),exports);return exports;}
+const {isStale,paymentSummary,safeUrl,csvCell}=moduleTS('lib/domain.ts');
+const now=Date.parse('2026-11-03T12:00:00Z');
+const inquiry={id:'i',kind:'inquiries',status:'Quoted',data:{},lastActivity:new Date(now-48*3600000).toISOString(),archivedAt:null};
+assert.equal(isStale(inquiry,[inquiry],now),true);
+assert.equal(isStale({...inquiry,lastActivity:new Date(now-47*3600000).toISOString()},[],now),false);
+for(const status of ['Converted','Waiting Operator','Lost','Cancelled'])assert.equal(isStale({...inquiry,status},[],now),false);
+assert.equal(isStale(inquiry,[{kind:'bookings',data:{inquiryId:'i'}}],now),false);
+assert.equal(isStale(inquiry,[{kind:'requests',status:'Pending',data:{inquiryId:'i'}}],now),false);
+assert.equal(isStale({...inquiry,kind:'bookings'},[],now),false);
+assert.equal(isStale({...inquiry,archivedAt:'2026-11-03'},[],now),false);
+assert.equal(isStale({...inquiry,lastActivity:new Date(now).toISOString()},[],now),false);
+assert.equal(safeUrl('javascript:alert(1)'), '');assert.equal(csvCell('=HYPERLINK("bad")').startsWith('"\''),true);
+const sql=new DatabaseSync(':memory:');sql.exec(fs.readFileSync('drizzle/0000_nice_moira_mactaggert.sql','utf8'));
+const d1={prepare(text){return {bind(...args){return {text,args}}}},async batch(statements){sql.exec('BEGIN');try{const results=statements.map(s=>({meta:{changes:Number(sql.prepare(s.text).run(...s.args).changes)}}));sql.exec('COMMIT');return results;}catch(e){sql.exec('ROLLBACK');throw e;}}};
+const {recordPayment,operatorOutcome}=moduleTS('lib/transactions.ts',{'./store':{database:()=>d1}});
+function seed(id,kind,status,data,version=1){sql.prepare('INSERT INTO records(id,owner,kind,data,status,last_activity,created_at,updated_at,mutation,version) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,'owner',kind,JSON.stringify(data),status,'2026-11-03','2026-11-03','2026-11-03','seed',version);}
+const get=id=>{const r=sql.prepare('SELECT * FROM records WHERE id=?').get(id);return {...r,data:JSON.parse(r.data)}};
+seed('b','bookings','Pending Operator',{currency:'VND',sellingPrice:100});seed('r','requests','Pending',{bookingId:'b',operatorId:'op'});
+await operatorOutcome('owner',get('r'),get('b'),'No Slot','');assert.equal(get('b').status,'Pending Operator');assert.equal(get('r').status,'No Slot');
+seed('r2','requests','Pending',{bookingId:'b',operatorId:'op2'});await operatorOutcome('owner',get('r2'),get('b'),'Booked','CONFIRMED-01');assert.equal(get('b').status,'Booked');assert.equal(get('r2').status,'Booked');
+await assert.rejects(()=>operatorOutcome('owner',{...get('r2'),version:1},get('b'),'No Slot',''));
+seed('r3','requests','Pending',{bookingId:'b',operatorId:'op3'});await assert.rejects(()=>operatorOutcome('owner',get('r3'),{...get('b'),version:0},'Booked','STALE'));assert.equal(get('r3').status,'Pending');
+await recordPayment('owner',{bookingId:'b',currency:'VND',amount:100,type:'Payment',method:'Cash'});
+await recordPayment('owner',{bookingId:'b',currency:'VND',amount:60,type:'Refund',method:'Cash'});
+await assert.rejects(()=>recordPayment('owner',{bookingId:'b',currency:'VND',amount:60,type:'Refund',method:'Cash'}));
+await assert.rejects(()=>recordPayment('other-owner',{bookingId:'b',currency:'VND',amount:1,type:'Payment',method:'Cash'}));
+const payments=sql.prepare("SELECT * FROM records WHERE kind='payments'").all().map(r=>({...r,data:JSON.parse(r.data)}));assert.equal(paymentSummary({id:'b',data:{sellingPrice:100}},payments).paid,40);assert.equal(get('b').status,'Booked');
+const {workbook}=moduleTS('lib/xlsx.ts');const {unzipSync,strFromU8}=require('fflate');const zipped=workbook([['Date','Name','Amount'],['2026-11-03','=NOT_A_FORMULA',25]]);const files=unzipSync(zipped);assert.ok(files['xl/workbook.xml']);assert.ok(strFromU8(files['xl/worksheets/sheet1.xml']).includes('t="inlineStr"'));fs.mkdirSync('/tmp/hub-workspace-qa',{recursive:true});fs.writeFileSync('/tmp/hub-workspace-qa/ledger.xlsx',zipped);
+console.log('PASS: 48h archive guards, safe links/CSV, atomic operator outcomes, stale write protection, refund balance, owner scoping, XLSX export');
+const {expenseGate,monthlyLedger,chartSeries}=moduleTS('lib/finance.ts');
+const row=(id,kind,data,updatedAt='2026-11-01T00:00:00Z')=>({id,kind,data,updatedAt,createdAt:updatedAt});
+const report=[row('elec','expenses',{category:'Electricity',amount:0,currency:'VND',date:'2026-11-01'}),row('water','expenses',{category:'Water',amount:50000,currency:'VND',date:'2026-11-01'}),row('operator','expenses',{category:'Operator cost',amount:999999,currency:'VND',date:'2026-11-01'}),row('setting','settings',{reviewedMonths:{'2026-11':'2026-11-02T00:00:00Z'}})];
+assert.equal(expenseGate(report,'2026-11').ready,true);assert.ok(expenseGate(report.filter(r=>r.id!=='water'),'2026-11').missing.includes('Water'));assert.equal(expenseGate([...report,row('extra','expenses',{category:'Shop',amount:100,date:'2026-11-02'},'2026-11-03T00:00:00Z')],'2026-11').ready,false);assert.equal(monthlyLedger(report,'2026-11','VND').length,2);
+const chartNow=Date.parse('2026-11-04T10:00:00Z'),cash=row('cash','transactions',{amount:50000,currency:'VND'},'2026-11-04T09:30:00Z');assert.equal(chartSeries([cash],'1h','VND',chartNow).reduce((s,b)=>s+b.value,0),50000);assert.equal(chartSeries([cash],'1h','USD',chartNow).reduce((s,b)=>s+b.value,0),0);
+let outcome;const tickets=moduleTS('lib/tickets.ts',{'./store':{database:()=>d1,update:async(...args)=>{outcome=args;}}});
+seed('ticket','inquiries','New',{customerName:'Test'});await tickets.ticketOutcome('owner',get('ticket'),{operatorId:'op',customerName:'Test'},'No Slot','Unavailable');assert.equal(outcome[3],'Ready to Book');assert.equal(sql.prepare("SELECT count(*) n FROM records WHERE kind='bookings'").get().n,1);
+await tickets.ticketOutcome('owner',get('ticket'),{operatorId:'op',customerName:'Test'},'Booked','CONFIRMED');assert.equal(get('ticket').status,'Converted');assert.equal(sql.prepare("SELECT count(*) n FROM records WHERE kind='bookings'").get().n,2);await assert.rejects(()=>tickets.ticketOutcome('owner',{...get('ticket'),status:'New',version:1},{operatorId:'op'},'Booked','RETRY'));assert.equal(sql.prepare("SELECT count(*) n FROM records WHERE kind='bookings'").get().n,2);
+const endpoint=fs.readFileSync('app/api/workspace/route.ts','utf8');for(const match of endpoint.matchAll(/prepare\("(INSERT INTO records[^"\n]+ON CONFLICT[^"\n]+)"\)/g)){const placeholders=(match[1].match(/\?/g)||[]).length;assert.equal(placeholders,7);sql.prepare(match[1]).run('utility-test-'+Math.random(),'owner','{}','2026-11-01','2026-11-01','2026-11-01','test');}
+console.log('PASS: mandatory utilities + zero values, expense re-review, operator exclusion, currency isolation, analytics bins, Booked-only creation, no duplicate booking and monthly UPSERT SQL');

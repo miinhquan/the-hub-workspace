@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793710387425,
+      "tag": "0000_nice_moira_mactaggert",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793730585539,
+      "tag": "0001_long_sue_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793739119679,
+      "tag": "0002_nappy_bastion",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793739199558,
+      "tag": "0003_flat_bromley",
+      "breakpoints": true
+    }
+  ]
+}

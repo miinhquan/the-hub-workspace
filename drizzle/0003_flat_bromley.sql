@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `wa_statuses_dedupe` ON `wa_statuses` (`wamid`,`status`,`timestamp`);
