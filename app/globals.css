@@ -37,3 +37,10 @@ html[data-theme="dark"]{color-scheme:dark;--blue:#75a9ff;--ink:#e3eaf5;--muted:#
 .language-switch{font:inherit;font-size:13px;padding:7px 9px;max-width:145px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
 .login-card>.language-switch{justify-self:end}
 @media(max-width:650px){.control-center .recent-event{grid-template-columns:minmax(0,1fr) auto}.control-center .recent-event span{grid-column:1/-1;grid-row:2}.control-center .recent-event time{font-size:10px}.activity-controls{flex-wrap:wrap}}
+
+/* Keep payment shortcuts beside the sale title, wrapping on small screens. */
+.quick-sale>header{flex-wrap:wrap;gap:10px}
+.quick-sale>header .unpaid-bookings-select{margin-left:auto;width:auto;min-width:0;max-width:min(100%,16rem);min-height:36px;padding:6px 8px;font-size:12px;font-weight:600;text-overflow:ellipsis;color:var(--ink);border:1px solid var(--line);background:var(--paper)}
+.unpaid-bookings-select option{background:var(--paper);color:var(--ink)}
+.cancel-booking-form{display:grid;gap:12px}
+.cancel-booking-form .dialog-footer{flex-wrap:wrap}

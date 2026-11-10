@@ -1,7 +1,7 @@
 import {serviceDetails} from '@/lib/service-details';
 import {ticketOutcome} from '@/lib/tickets';
 import {expenseGate} from '@/lib/finance';
-import {operatorOutcome,recordPayment} from '@/lib/transactions';
+import {cancelBooking,operatorOutcome,recordPayment} from '@/lib/transactions';
 import {env} from 'cloudflare:workers';
 import {owner,sameOrigin} from '@/lib/access';
 import {allRecords,one,insert,update,database,event,archiveStale} from '@/lib/store';
@@ -28,7 +28,7 @@ export async function POST(req:Request){try{const u=await owner();sameOrigin(req
  if(['inquiries','bookings'].includes(kind)){if(!String(d.customerName||'').trim())throw new Error('Customer name is required');if(d.customerId)ref(d.customerId,'customers');Object.assign(d,serviceDetails(d,all));if(d.travellers!=null&&d.travellers!==''&&(!Number.isInteger(Number(d.travellers))||Number(d.travellers)<1))throw new Error('Travellers must be at least 1');}
  if(kind==='inquiries'){status=status||'New';if(!inquiryStatuses.includes(status))throw new Error('Use Convert or Restore for this status');if(existing?.status==='Converted'||existing?.archivedAt)throw new Error('This inquiry is closed; use Restore if available.');}
  if(kind==='bookings'){status=existing?.status||'Pending Operator';if(!Number.isFinite(Number(d.sellingPrice))||Number(d.sellingPrice)<0)throw new Error('Selling price must be positive or zero');if(existing?.data.inquiryId)d.inquiryId=existing.data.inquiryId;}
- if(kind==='requests'){ref(d.bookingId,'bookings');Object.assign(d,serviceDetails(d,all));if(!d.operatorName)throw new Error('Enter operator name');if(existing)throw new Error('Use the request outcome buttons');status='Pending';}
+ if(kind==='requests'){if(['Cancelled','Completed'].includes(ref(d.bookingId,'bookings').status))throw new Error('Booking is closed');Object.assign(d,serviceDetails(d,all));if(!d.operatorName)throw new Error('Enter operator name');if(existing)throw new Error('Use the request outcome buttons');status='Pending';}
  if(kind==='payments'){if(existing)throw new Error('Payments are immutable. Record a refund instead.');const pb=ref(d.bookingId,'bookings');if(d.type!=='Refund'&&!['Booked','Completed'].includes(pb.status))throw new Error('Confirm BOOKED before recording payment');if(!['Cash','Online'].includes(d.method))throw new Error('Choose Cash or Online');if(!Number.isFinite(Number(d.amount))||Number(d.amount)<=0)throw new Error('Enter a positive payment amount');if(!['Payment','Refund'].includes(d.type))throw new Error('Choose Payment or Refund');if(d.type==='Refund'&&Number(d.amount)>paymentSummary(ref(d.bookingId,'bookings'),all).paid)throw new Error('Refund exceeds the recorded paid amount');d.currency=ref(d.bookingId,'bookings').data.currency||'VND';}
  if(['expenses','transactions'].includes(kind)&&(!Number.isFinite(Number(d.amount))||Number(d.amount)<0))throw new Error('Invalid amount');
  if(['bookings','expenses'].includes(kind)&&!['VND','USD'].includes(d.currency))throw new Error('Choose VND or USD'); if(kind==='bookings'&&existing&&existing.data.currency!==d.currency&&all.some(p=>p.kind==='payments'&&p.data.bookingId===existing.id))throw new Error('A booking with payments cannot change currency');
@@ -51,6 +51,17 @@ export async function POST(req:Request){try{const u=await owner();sameOrigin(req
  const booking=ref(r.data.bookingId,'bookings');if(['Cancelled','Completed'].includes(booking.status))throw new Error('Booking is closed');await operatorOutcome(u.userId,r,booking,body.status,String(body.reference||'').trim());
  // No Slot and request cancellation never cancel the customer booking.
  }
- else if(action==='bookingStatus'){if(r.kind!=='bookings'||!['Completed','Cancelled'].includes(body.status))throw new Error('Invalid status');if(body.status==='Completed'&&r.status!=='Booked')throw new Error('Only a confirmed booking can be completed');await update(u.userId,r,{...r.data,refundReview:body.status==='Cancelled'&&paymentSummary(r,all).paid>0},body.status,'booking_status',body.status);}
+ else if(action==='bookingStatus'){
+  if(r.kind!=='bookings'||!['Completed','Cancelled'].includes(body.status))throw new Error('Invalid status');
+  if(body.status==='Completed'){
+   if(r.status!=='Booked')throw new Error('Only a confirmed booking can be completed');
+   await update(u.userId,r,r.data,'Completed','booking_status','Completed');
+  }else{
+   const paid=paymentSummary(r,all).paid,method=body.refundMethod;
+   if(r.status==='Cancelled'||body.version!==r.version||body.expectedPaid!==paid)throw new Error('Booking or payment changed. Reopen the cancellation form and try again.');
+   if(method!=null&&(!['Cash','Online'].includes(method)||paid<=0))throw new Error('Choose Cash or Online');
+   await cancelBooking(u.userId,r,paid,method??undefined);
+  }
+ }
  else throw new Error('Unknown action');return json({ok:true});
  }catch(e){return error(e);}}

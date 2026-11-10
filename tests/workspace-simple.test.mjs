@@ -52,5 +52,55 @@ assert.equal((await store.one('owner',pending.id)).data.operatorName,'Supplier A
 assert.equal((await post({action:'save',kind:'requests',data:{bookingId:pending.id,operatorName:'Supplier B'}})).status,200);
 const second=(await all()).find(r=>r.kind==='requests'&&r.data.operatorName==='Supplier B');assert.equal((await post({action:'outcome',id:second.id,status:'Booked',reference:'Duplicate supplier'})).status,400);
 assert.equal((await store.one('owner',pending.id)).data.operatorName,'Supplier A');
+
+// A booked order with no price yet is still unpaid. Cancelled and fully paid
+// orders must never come back to the collection shortcut.
+assert.deepEqual(new Set(domain.unpaidBookings(await all()).map(r=>r.id)),new Set([b.id,pending.id]));
+const date=finance.hanoiDate(),month=date.slice(0,7),owner='owner';
+const pay=(id,amount,type='Payment',method='Online')=>post({action:'save',kind:'payments',data:{bookingId:id,amount,type,method,date}});
+const cancelBooking=(booking,expectedPaid,refundMethod)=>post({action:'bookingStatus',id:booking.id,status:'Cancelled',version:booking.version,expectedPaid,refundMethod});
+const addBooking=async (name,sellingPrice,currency='VND')=>{
+ const r=store.insert(owner,'bookings',{customerName:name,service:'Tour',sellingPrice,currency},'Booked');
+ await r.statement.run();
+ return store.one(owner,r.id);
+};
+const paidTour=await addBooking('Paid tour',1000000);
+assert.equal((await pay(paidTour.id,700000)).status,200);
+assert.equal((await pay(paidTour.id,300000,'Payment','Cash')).status,200);
+assert.equal(domain.unpaidBookings(await all()).some(r=>r.id===paidTour.id),false);
+assert.equal((await pay(paidTour.id,200000,'Refund')).status,200);
+assert.equal(domain.unpaidBookings(await all()).some(r=>r.id===paidTour.id),true);
+await assert.rejects(()=>transactions.cancelBooking(owner,paidTour,1000000,'Online'));
+assert.equal((await store.one(owner,paidTour.id)).status,'Booked');
+assert.equal((await cancelBooking(paidTour,1000000,'Online')).status,400);
+assert.equal((await cancelBooking(paidTour,800000,'Online')).status,200);
+assert.equal((await cancelBooking(paidTour,800000,'Online')).status,400);
+await assert.rejects(()=>transactions.recordPayment(owner,{bookingId:paidTour.id,currency:'VND',amount:100,type:'Payment',method:'Cash'}));
+const after=await all(),linked=after.filter(r=>r.kind==='payments'&&r.data.bookingId===paidTour.id);
+assert.equal(linked.length,4);
+const automaticRefund=linked.find(r=>r.data.source==='booking_cancellation');
+assert.deepEqual(automaticRefund.data,{bookingId:paidTour.id,amount:800000,currency:'VND',method:'Online',type:'Refund',date,source:'booking_cancellation'});
+assert.equal(after.find(r=>r.id===paidTour.id).status,'Cancelled');
+assert.equal(domain.unpaidBookings(after).some(r=>r.id===paidTour.id),false);
+const net=items=>items.reduce((sum,r)=>sum+(r.data.type==='Refund'?-1:1)*r.data.amount,0);
+assert.equal(net(finance.monthlyLedger(after,month,'VND').filter(r=>r.data.bookingId===paidTour.id)),0);
+assert.equal(finance.chartSeries(linked,'1h','VND',Date.now()).reduce((sum,bin)=>sum+bin.value,0),0);
+const history=(await d1.prepare('SELECT event,detail FROM events WHERE owner=? AND record_id=?').bind(owner,paidTour.id).all()).results;
+assert.equal(history.filter(r=>r.event==='booking_status'&&r.detail==='Cancelled').length,1);
+assert.equal(history.filter(r=>r.detail.startsWith('Cancellation refund')).length,1);
+
+// Cancel without refund leaves actual cash intact. Staff can log that refund later.
+const held=await addBooking('Pending refund',0.3,'USD');
+for(const n of [0.1,0.2])assert.equal((await pay(held.id,n)).status,200);
+assert.equal((await cancelBooking(held,0.3)).status,200);
+const heldAfter=await all();
+assert.equal(heldAfter.find(r=>r.id===held.id).data.refundReview,true);
+assert.equal(domain.paymentSummary(held,heldAfter).paid,0.3);
+assert.equal(heldAfter.filter(r=>r.kind==='payments'&&r.data.bookingId===held.id).length,2);
+assert.equal((await pay(held.id,0.3,'Refund')).status,200);
+assert.equal(domain.paymentSummary(held,await all()).paid,0);
+
+assert.equal((await cancelBooking(await store.one(owner,pending.id),0)).status,200);
+assert.equal((await all()).some(r=>r.kind==='payments'&&r.data.bookingId===pending.id),false);
 assert.equal((await api.GET()).status,200);loggedIn=false;assert.equal((await api.GET()).status,401);assert.equal((await post({action:'save',kind:'inquiries',data:{customerName:'Unauthorised'}})).status,401);
-console.log('PASS: manual tour/supplier names without catalogues, confirmation/duplicate guards, payments, No Slot/Cancel, Archive/Restore, legacy data preservation, retired module writes rejected, POS exclusion, manual supplier requests and authenticated access. Isolated DB; no live account changes.');
+console.log('PASS: booking workflow, unpaid filters, cancellation and exact refunds, audit history, stale/repeat protection, report totals and authenticated access. Isolated DB; no live account changes.');
