@@ -37,10 +37,18 @@ console.log('PASS: 48h archive guards, safe links/CSV, atomic operator outcomes,
 const {expenseGate,monthlyLedger,chartSeries}=moduleTS('lib/finance.ts');
 const row=(id,kind,data,updatedAt='2026-11-01T00:00:00Z')=>({id,kind,data,updatedAt,createdAt:updatedAt});
 const report=[row('elec','expenses',{category:'Electricity',amount:0,currency:'VND',date:'2026-11-01'}),row('water','expenses',{category:'Water',amount:50000,currency:'VND',date:'2026-11-01'}),row('operator','expenses',{category:'Operator cost',amount:999999,currency:'VND',date:'2026-11-01'}),row('setting','settings',{reviewedMonths:{'2026-11':'2026-11-02T00:00:00Z'}})];
-assert.equal(expenseGate(report,'2026-11').ready,true);assert.ok(expenseGate(report.filter(r=>r.id!=='water'),'2026-11').missing.includes('Water'));assert.equal(expenseGate([...report,row('extra','expenses',{category:'Shop',amount:100,date:'2026-11-02'},'2026-11-03T00:00:00Z')],'2026-11').ready,false);assert.equal(monthlyLedger(report,'2026-11','VND').length,2);
+const shopExpense=row('signage','expenses',{category:'Shop',amount:530000,currency:'VND',date:'2026-11-14'},'2026-11-14T00:00:00Z');
+const reportWithSignage=[...report,shopExpense];
+assert.equal(expenseGate(report,'2026-11').ready,true);
+assert.ok(expenseGate(report.filter(r=>r.id!=='water'),'2026-11').missing.includes('Water'));
+assert.equal(expenseGate(reportWithSignage,'2026-11').ready,true);
+assert.deepEqual(monthlyLedger(reportWithSignage,'2026-11','VND').map(r=>r.id),['elec','water','signage']);
+assert.deepEqual(expenseGate(reportWithSignage.filter(r=>r.kind!=='settings'),'2026-11').missing,['Submit monthly expense review']);
+const updatedWater={...report[1],updatedAt:'2026-11-15T00:00:00Z'};
+assert.deepEqual(expenseGate(reportWithSignage.map(r=>r.id==='water'?updatedWater:r),'2026-11').missing,['Submit monthly expense review']);
 const chartNow=Date.parse('2026-11-04T10:00:00Z'),cash=row('cash','transactions',{amount:50000,currency:'VND'},'2026-11-04T09:30:00Z');assert.equal(chartSeries([cash],'1h','VND',chartNow).reduce((s,b)=>s+b.value,0),50000);assert.equal(chartSeries([cash],'1h','USD',chartNow).reduce((s,b)=>s+b.value,0),0);
 let outcome;const tickets=moduleTS('lib/tickets.ts',{'./store':{database:()=>d1,update:async(...args)=>{outcome=args;}}});
 seed('ticket','inquiries','New',{customerName:'Test'});await tickets.ticketOutcome('owner',get('ticket'),{operatorId:'op',customerName:'Test'},'No Slot','Unavailable');assert.equal(outcome[3],'Ready to Book');assert.equal(sql.prepare("SELECT count(*) n FROM records WHERE kind='bookings'").get().n,1);
 await tickets.ticketOutcome('owner',get('ticket'),{operatorId:'op',customerName:'Test'},'Booked','CONFIRMED');assert.equal(get('ticket').status,'Converted');assert.equal(sql.prepare("SELECT count(*) n FROM records WHERE kind='bookings'").get().n,2);await assert.rejects(()=>tickets.ticketOutcome('owner',{...get('ticket'),status:'New',version:1},{operatorId:'op'},'Booked','RETRY'));assert.equal(sql.prepare("SELECT count(*) n FROM records WHERE kind='bookings'").get().n,2);
 const endpoint=fs.readFileSync('app/api/workspace/route.ts','utf8');for(const match of endpoint.matchAll(/prepare\("(INSERT INTO records[^"\n]+ON CONFLICT[^"\n]+)"\)/g)){const placeholders=(match[1].match(/\?/g)||[]).length;assert.equal(placeholders,7);sql.prepare(match[1]).run('utility-test-'+Math.random(),'owner','{}','2026-11-01','2026-11-01','2026-11-01','test');}
-console.log('PASS: mandatory utilities + zero values, expense re-review, operator exclusion, currency isolation, analytics bins, Booked-only creation, no duplicate booking and monthly UPSERT SQL');
+console.log('PASS: mandatory utilities + zero values, review stays valid after shop expenses, operator exclusion, currency isolation, analytics bins, Booked-only creation, no duplicate booking and monthly UPSERT SQL');

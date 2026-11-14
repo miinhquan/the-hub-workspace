@@ -2,10 +2,11 @@ import type {RecordItem} from './domain';
 export const hanoiDate=(at=new Date())=>at.toLocaleDateString('en-CA',{timeZone:'Asia/Ho_Chi_Minh'});
 export const isOperatingExpense=(r:RecordItem)=>r.kind==='expenses'&&!['Operator cost','Operator payment','Agent cost'].includes(r.data.category);
 export function expenseGate(all:RecordItem[],month:string){
- const expenses=all.filter(r=>isOperatingExpense(r)&&String(r.data.date||'').startsWith(month));
- const missing:string[]=[];for(const category of ['Electricity','Water'])if(!expenses.some(r=>r.data.category===category&&Number.isFinite(Number(r.data.amount))&&Number(r.data.amount)>=0))missing.push(category);
+ const categories=['Electricity','Water'];
+ const utilities=all.filter(r=>r.kind==='expenses'&&categories.includes(r.data.category)&&String(r.data.date||'').startsWith(month));
+ const missing=categories.filter(category=>!utilities.some(r=>r.data.category===category&&Number.isFinite(Number(r.data.amount))&&Number(r.data.amount)>=0));
  const reviewed=all.filter(r=>r.kind==='settings').map(r=>r.data.reviewedMonths?.[month]||'').sort().pop()||'';
- if(!reviewed||expenses.some(r=>r.updatedAt>reviewed))missing.push('Submit monthly expense review');
+ if(!reviewed||utilities.some(r=>r.updatedAt>reviewed))missing.push('Submit monthly expense review');
  return {ready:missing.length===0,missing};
 }
 export function monthlyLedger(all:RecordItem[],month:string,currency:string){return all.filter(r=>['payments','transactions'].includes(r.kind)||isOperatingExpense(r)).filter(r=>String(r.data.date||'').startsWith(month)&&r.data.currency===currency);}
