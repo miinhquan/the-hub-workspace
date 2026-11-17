@@ -1,0 +1,12 @@
+{
+  "account_id": "18e12f49b9187dced389de8b3c156b0f",
+  "worker_id": "18eb5de3bb394cd5a522f4370f61d432",
+  "worker_name": "the-hub-ai-agent",
+  "preview_id": "3ec201d670ea419099ba55db92d69edc",
+  "preview_name": "codex/ai-agent-phase-a",
+  "preview_url": "https://codex-ai-agent-phase-a-the-hub-ai-agent.quannguyenminh97.workers.dev",
+  "kv_namespace_id": "6f8a5f1b08234dec8a59e6a80995dd74",
+  "compatibility_date": "2025-11-01",
+  "production_deployment": false,
+  "custom_domains": []
+}
