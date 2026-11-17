@@ -14,7 +14,7 @@ Orb settings control its size/vertical offset, colors, halo, shader deformation/
 
 Select Ha Long Bay, Ha Giang Loop, Laundry help, or Switch languages. **Play** runs the predefined scenario; **Pause** retains the remaining delay, **Replay scenario** starts again, and **Next simulation step** advances without autoplay. Changing scenarios clears the previous paused sequence.
 
-Use state shortcuts to inspect individual moments. **Tour details** opens a sample detail dialog. **Return to orb** dismisses tour content. **Visitor present/left** simulates departure and ends the current session. **Full sequence** resets to Welcome, opens Home, then runs the selected scenario. To review the actual glass expansion itself, choose **Welcome** and press **Tap to Start** in the canvas. These controls never access a microphone, create a real inquiry, or send a message.
+Use state shortcuts to inspect individual moments. **Tour details** opens a sample detail dialog. **Return to orb** dismisses tour content. **Visitor present/left** simulates departure and ends the current session. **Full sequence** resets to Welcome, opens Home, then runs the selected scenario. **Replay animation** replays the actual glass expansion from Welcome to Home. You can also choose **Welcome** and press **Tap to Start** in the canvas. These controls never access a microphone, create a real inquiry, or send a message.
 
 The event timeline distinguishes states, customer lines, agent lines, simulated function calls and system controls. Draft animations use the same components as the visitor experience.
 

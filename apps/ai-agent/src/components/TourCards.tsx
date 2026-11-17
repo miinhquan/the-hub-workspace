@@ -32,7 +32,10 @@ export function TourDetails({
     <dialog
       ref={dialog}
       className="tour-dialog"
-      onCancel={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -41,6 +44,8 @@ export function TourDetails({
       <motion.div
         initial={{ opacity: 0, scale: reduced ? 1 : 0.96, y: reduced ? 0 : 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: reduced ? 1 : 0.97, y: reduced ? 0 : 12 }}
+        transition={{ duration: reduced ? 0.01 : 0.25 }}
         className="tour-detail"
       >
         <div className="detail-photo">
@@ -350,17 +355,19 @@ export function TourCards({
           </button>
         </div>
       </div>
-      {selected && (
-        <TourDetails
-          tour={selected}
-          reduced={reduced}
-          onClose={() => setSelected(null)}
-          onInquiry={() => {
-            setSelected(null);
-            onInquiry();
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {selected && (
+          <TourDetails
+            tour={selected}
+            reduced={reduced}
+            onClose={() => setSelected(null)}
+            onInquiry={() => {
+              setSelected(null);
+              onInquiry();
+            }}
+          />
+        )}
+      </AnimatePresence>
     </motion.section>
   );
 }

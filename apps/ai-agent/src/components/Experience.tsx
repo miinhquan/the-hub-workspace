@@ -65,10 +65,12 @@ export function Experience({
   config,
   sim,
   embedded = false,
+  replay,
 }: {
   config: Effects;
   sim: Simulation;
   embedded?: boolean;
+  replay?: { id: number; full: boolean };
 }) {
   const prefersReduced = useReducedMotion(),
     reduced = config.motion.reduced || !!prefersReduced;
@@ -80,13 +82,28 @@ export function Experience({
     [showLanguages, setShowLanguages] = useState(false),
     [origin, setOrigin] = useState({ x: 0, y: 0, width: 266, height: 266 });
   const root = useRef<HTMLDivElement>(null);
+  const welcomeButton = useRef<HTMLButtonElement>(null);
+  const replayed = useRef(0);
   const go = sim.go;
+  const startSession = sim.start;
   const welcome = sim.state === "WELCOME",
     home = sim.state === "HOME",
     active = !welcome && !home;
   const speed = config.motion.speed,
     respond = config.motion.responsiveness;
   const duration = reduced ? 0.01 : config.transition.duration / speed;
+  useEffect(() => {
+    if (!replay || replay.id <= replayed.current) return;
+    replayed.current = replay.id;
+    const tap = setTimeout(() => welcomeButton.current?.click(), 500);
+    const session = replay.full
+      ? setTimeout(() => startSession(), 900 + duration * 1000)
+      : null;
+    return () => {
+      clearTimeout(tap);
+      if (session) clearTimeout(session);
+    };
+  }, [replay, duration, startSession]);
   useEffect(() => {
     const update = () => setFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", update);
@@ -110,13 +127,13 @@ export function Experience({
     setEntering(true);
   };
   useEffect(() => {
-    if (!entering) return;
+    if (!entering || !welcome) return;
     const timer = setTimeout(
       () => go("HOME"),
       duration * 1000 * config.transition.fade,
     );
     return () => clearTimeout(timer);
-  }, [entering, duration, config.transition.fade, go]);
+  }, [entering, welcome, duration, config.transition.fade, go]);
   const inquiry = () => {
     sim.log("create_inquiry · simulated, no external write", "function");
     setNotice("Demo inquiry prepared. Nothing has been sent or booked.");
@@ -261,6 +278,7 @@ export function Experience({
                 <div className="welcome-orbit orbit-two" />
                 <motion.button
                   className="welcome-button"
+                  ref={welcomeButton}
                   onClick={start}
                   aria-label="Tap to Start"
                   disabled={entering}

@@ -155,11 +155,11 @@ export default function EffectsEditor() {
     [help, setHelp] = useState(false),
     [timeline, setTimeline] = useState(true),
     [publishedAt, setPublishedAt] = useState(""),
-    [present, setPresent] = useState(true);
+    [present, setPresent] = useState(true),
+    [replay, setReplay] = useState<{ id: number; full: boolean }>();
   const imported = useRef<HTMLInputElement>(null),
     sim = useSimulation();
-  const loaded = useRef(false),
-    sequenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loaded = useRef(false);
   useEffect(() => {
     api("admin/me")
       .then(() => setAuth("admin"))
@@ -175,7 +175,10 @@ export default function EffectsEditor() {
         setPresets(draft.presets);
         setPublished(validateEffects(pub.config));
         setPublishedAt(pub.publishedAt || "");
-        setDirty(!!readLocal());
+        setDirty(
+          JSON.stringify(readLocal() || draft.draft) !==
+            JSON.stringify(draft.draft),
+        );
         loaded.current = true;
       })
       .catch((err) => {
@@ -201,12 +204,6 @@ export default function EffectsEditor() {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
-  useEffect(
-    () => () => {
-      if (sequenceTimer.current) clearTimeout(sequenceTimer.current);
-    },
-    [],
-  );
   useEffect(() => {
     if (!message) return;
     const t = setTimeout(() => setMessage(""), 5000);
@@ -299,20 +296,11 @@ export default function EffectsEditor() {
     ];
     if (await save(next)) setMessage(`${name} saved to your presets.`);
   };
-  const fullSequence = () => {
-    if (sequenceTimer.current) clearTimeout(sequenceTimer.current);
+  const replayAnimation = (full = false) => {
     sim.reset();
-    sequenceTimer.current = setTimeout(() => {
-      sim.home();
-      sequenceTimer.current = setTimeout(
-        () => sim.start(),
-        Math.max(
-          500,
-          (config.transition.duration * 1000) / config.motion.speed,
-        ),
-      );
-    }, 900);
+    setReplay((previous) => ({ id: (previous?.id || 0) + 1, full }));
   };
+  const fullSequence = () => replayAnimation(true);
   if (auth === "loading")
     return (
       <div className="auth-loading">
@@ -622,6 +610,13 @@ export default function EffectsEditor() {
               </small>
             </div>
             <div className="canvas-actions">
+              <button
+                className="sequence-button"
+                onClick={() => replayAnimation()}
+              >
+                <RotateCcw size={13} />
+                Replay animation
+              </button>
               <div className="viewport-buttons">
                 {[
                   { id: "desktop", icon: Monitor },
@@ -662,6 +657,7 @@ export default function EffectsEditor() {
               <Experience
                 config={viewPublished ? published : config}
                 sim={sim}
+                replay={replay}
                 embedded
               />
             </div>
