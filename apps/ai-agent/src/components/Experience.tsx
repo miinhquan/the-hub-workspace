@@ -37,26 +37,22 @@ export function Brand() {
 const topics = [
   {
     icon: Compass,
-    title: "Explore Vietnam",
-    subtitle: "Find your next adventure",
+    title: "Tours",
     scenario: "halong",
   },
   {
     icon: Shirt,
-    title: "Laundry assistance",
-    subtitle: "A fresh start, made easy",
+    title: "Laundry",
     scenario: "laundry",
   },
   {
     icon: TrainFront,
-    title: "Bus & train tickets",
-    subtitle: "Keep your journey moving",
+    title: "Tickets",
     scenario: "tickets",
   },
   {
     icon: Wifi,
-    title: "SIM & eSIM",
-    subtitle: "Stay connected along the way",
+    title: "SIM",
     scenario: "sim",
   },
 ];
@@ -165,18 +161,15 @@ export function Experience({
     lang === "fr"
       ? {
           hello: "Un peu de savoir local.",
-          line: "Tout un monde à découvrir.",
           start: "Parler avec notre Agent",
         }
       : lang === "vi"
         ? {
             hello: "Một chút am hiểu địa phương.",
-            line: "Mở ra những hành trình mới.",
             start: "Bắt đầu trò chuyện với Agent",
           }
         : {
             hello: "A little local knowledge.",
-            line: "A world of possibilities.",
             start: "Start talking with our Agent",
           };
   const w = config.welcome,
@@ -354,16 +347,8 @@ export function Experience({
                   />
                 </Suspense>
               </div>
-              <h1>
-                {labels.hello}
-                <br />
-                <span>{labels.line}</span>
-              </h1>
-              <p>
-                From your next adventure to your next laundry load.
-                <br />
-                Let’s make your time in Vietnam a little easier.
-              </p>
+              <h1>{labels.hello}</h1>
+              <p>From your next adventure to your next laundry load.</p>
               <motion.button
                 className="primary-button start-talking"
                 onClick={() => sim.start()}
@@ -378,18 +363,17 @@ export function Experience({
                 A preview conversation · Your microphone stays off
               </span>
               <div className="topic-grid">
-                {topics.map(({ icon: Icon, title, subtitle, scenario }) => (
+                {topics.map(({ icon: Icon, title, scenario }) => (
                   <button
                     className="topic-card glass"
                     key={title}
                     onClick={() => topic(scenario)}
                   >
                     <span className="topic-icon">
-                      <Icon size={20} strokeWidth={1.5} />
+                      <Icon size={22} strokeWidth={1.5} />
                     </span>
                     <span>
                       <strong>{title}</strong>
-                      <small>{subtitle}</small>
                     </span>
                     <ArrowRight className="topic-arrow" size={16} />
                   </button>
