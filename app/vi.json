@@ -439,5 +439,12 @@
   "Booking": "Đơn đặt dịch vụ",
   "Mark as paid": "Đánh dấu đã thanh toán",
   "Booking is closed": "Đơn đặt dịch vụ đã đóng",
-  "Booked & completed": "Đã đặt và đã hoàn tất"
+  "Booked & completed": "Đã đặt và đã hoàn tất",
+  "This month": "Tháng này",
+  "Hanoi time": "Giờ Hà Nội",
+  "Delete all pending": "Xóa toàn bộ yêu cầu chờ",
+  "pending inquiries will move to Archived. You can restore them from Inquiries.": "yêu cầu đang chờ sẽ chuyển vào Đã lưu trữ. Bạn có thể khôi phục tại mục Yêu cầu.",
+  "Confirm clear pending": "Xác nhận xóa yêu cầu chờ",
+  "Changed inquiries were kept. Review the remaining pending list.": "Các yêu cầu vừa thay đổi được giữ lại. Kiểm tra danh sách chờ còn lại.",
+  "Pending inquiries cleared.": "Đã dọn các yêu cầu đang chờ."
 }

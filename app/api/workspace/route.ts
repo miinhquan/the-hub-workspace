@@ -4,7 +4,7 @@ import {expenseGate} from '@/lib/finance';
 import {cancelBooking,operatorOutcome,recordPayment} from '@/lib/transactions';
 import {env} from 'cloudflare:workers';
 import {owner,sameOrigin} from '@/lib/access';
-import {allRecords,one,insert,update,database,event,archiveStale} from '@/lib/store';
+import {allRecords,one,insert,update,database,event,archiveStale,archivePending} from '@/lib/store';
 import {kinds,inquiryStatuses,paymentSummary} from '@/lib/domain';
 export const dynamic='force-dynamic';
 const json=(v:any,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
@@ -12,6 +12,12 @@ function error(e:any){return json({error:e.message==='AUTH_REQUIRED'?'Please sig
 export async function GET(){try{const u=await owner();await archiveStale(u.userId);const records=await allRecords(u.userId);const events=(await database().prepare('SELECT * FROM events WHERE owner=? ORDER BY at DESC LIMIT 1500').bind(u.userId).all()).results;return json({records,events,user:{name:u.displayName,email:u.email,role:u.role,provider:'provider' in u?u.provider:'local'},archiveMode:'on_access',integrations:{whatsappConfigured:!!((env as any).META_APP_SECRET||(env as any).WHATSAPP_APP_SECRET)&&!!(env as any).WHATSAPP_PHONE_NUMBER_ID}});}catch(e){return error(e);}}
 function clean(data:any){if(!data||typeof data!=='object'||Array.isArray(data)||JSON.stringify(data).length>300000)throw new Error('Invalid record');for(const [k,v] of Object.entries(data)){if(['__proto__','prototype','constructor'].includes(k))throw new Error('Invalid field');if(typeof v==='string'&&v.length>12000)throw new Error('Text is too long');}return data;}
 export async function POST(req:Request){try{const u=await owner();sameOrigin(req);const body:any=await req.json(),action=body.action;const all=await allRecords(u.userId);const ref=(id:string,kind:string)=>{const r=all.find(x=>x.id===id&&x.kind===kind);if(!r)throw new Error('Select a valid '+kind+' record');return r;};
+ if(action==='clearPending'){
+  if(!Array.isArray(body.records)||body.records.some((record:any)=>!record||typeof record.id!=='string'||!Number.isSafeInteger(record.version)||record.version<1))throw new Error('Invalid pending selection');
+  if(new Set(body.records.map((record:any)=>record.id)).size!==body.records.length)throw new Error('Invalid pending selection');
+  const archived=await archivePending(u.userId,body.records);
+  return json({ok:true,archived,skipped:body.records.length-archived});
+ }
  if(action==='quickSale'){
  const d=clean(body.data);if(!String(d.customerName||'').trim())throw new Error('Customer name is required');if(!['Laundry','Tour','Bus ticket','Train ticket','SIM / eSIM','Other'].includes(d.service)||!['Cash','Online'].includes(d.method)||!['VND','USD'].includes(d.currency)||!Number.isFinite(Number(d.amount))||Number(d.amount)<=0)throw new Error('Choose service, positive amount, currency and Cash or Online');if(!/^[a-f0-9-]{36}$/.test(body.idempotencyKey||''))throw new Error('Invalid request key');
  const id='sale-'+body.idempotencyKey;if(all.some(r=>r.id===id))return json({ok:true,id});d.date=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Ho_Chi_Minh'});d.source='manual';const x=insert(u.userId,'transactions',d,'Paid',id);await database().batch([x.statement,event(u.userId,id,'manual_sale','Manual sale · '+d.customerName+' · '+d.amount+' '+d.currency)]);return json({ok:true,id});
