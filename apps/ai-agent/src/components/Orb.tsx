@@ -5,12 +5,18 @@ import { amplitude, type OrbState } from "../engine/machine";
 const vertex = `
 uniform float uTime, uDistortion, uAmplitude;
 varying vec3 vNormal, vPosition, vView;
-float wave(vec3 p) { return sin(p.x*3.2+uTime*.7)*cos(p.y*4.1-uTime*.5)*sin(p.z*3.8+uTime*.4); }
 void main(){
- vec3 p=position;
- float displacement=wave(p)*uDistortion*.075+sin(p.y*7.+uTime*3.)*uAmplitude*.035;
- p+=normal*displacement;
- vPosition=p; vNormal=normalize(normalMatrix*normal);
+ vec3 phase=position*vec3(3.2,4.1,3.8)+uTime*vec3(.7,-.5,.4);
+ vec3 s=sin(phase), c=cos(phase);
+ float strength=uDistortion*.055;
+ float pulse=position.y*7.+uTime*3.;
+ float displacement=strength*s.x*c.y*s.z+.035*uAmplitude*sin(pulse);
+ vec3 p=position+normal*displacement;
+ // Differentiate the displacement along the sphere so reflections follow its surface.
+ vec3 slope=strength*vec3(3.2*c.x*c.y*s.z,-4.1*s.x*s.y*s.z,3.8*s.x*c.y*c.z);
+ slope.y+=.245*uAmplitude*cos(pulse);
+ vec3 tangentSlope=slope-normal*dot(normal,slope);
+ vPosition=p; vNormal=normalize(normalMatrix*(normal-tangentSlope/(1.+displacement)));
  vec4 view=modelViewMatrix*vec4(p,1.); vView=-view.xyz;
  gl_Position=projectionMatrix*view;
 }`;
@@ -27,24 +33,32 @@ float field(vec3 p){
 }
 void main(){
  vec3 n=normalize(vNormal), view=normalize(vView), p=vPosition;
- float fresnel=pow(1.-max(dot(n,view),0.),2.6);
  float flow=field(p*(1.+uNoise*.65));
  float ribbon=sin(p.y*5.5+p.x*2.3+flow*(2.7+uNoise*2.)+uTime*.2);
  float ridge=pow(abs(sin(flow*3.+p.y*2.-uTime*.15)),8.);
- float light=max(dot(n,normalize(vec3(-.7,1.,1.7))),0.);
- vec3 deep=uPrimary*.38;
- vec3 color=mix(deep,uPrimary,smoothstep(-1.,.3,ribbon));
- color=mix(color,uSecondary,smoothstep(.05,1.,ribbon)*.85);
- color+=uSecondary*ridge*.17;
- color*=.58+light*.5;
- float spec=pow(max(dot(reflect(-normalize(vec3(-.5,1.,2.)),n),view),0.),65.);
- color+=vec3(1.)*spec*.85;
- float stripe=pow(max(0.,1.-abs(ribbon-.45)*2.4),16.);
- color+=vec3(.45,.7,.9)*stripe*.16;
- color=mix(color,vec3(.87,.96,1.),fresnel*(.45+uGlow*.35));
+ vec3 pigment=mix(uPrimary*.65,uSecondary,smoothstep(-.75,.95,ribbon)*.83);
+ pigment+=uSecondary*ridge*.065;
+ float daylight=max(0.,dot(n,normalize(vec3(-.68,.85,.95))));
+ vec3 color=pigment*(.28+.84*daylight);
+ // A broad window reflection and weaker floor bounce sit above the moving pigment.
+ vec3 reflected=reflect(-view,n);
+ vec3 windowDirection=normalize(vec3(-.58,.8,.76));
+ vec3 windowRight=normalize(cross(vec3(0.,1.,0.),windowDirection));
+ vec3 windowUp=cross(windowDirection,windowRight);
+ vec2 windowUV=vec2(dot(reflected,windowRight),dot(reflected,windowUp));
+ vec2 windowDistance=windowUV*vec2(2.9,5.);
+ float windowMask=smoothstep(.55,.95,dot(reflected,windowDirection));
+ float windowLight=exp(-dot(windowDistance,windowDistance))*windowMask;
+ float glint=(1.-smoothstep(.35,.9,length(windowUV*vec2(5.,9.))))*windowMask;
+ float bounce=smoothstep(.5,1.,dot(reflected,normalize(vec3(.65,-.85,.28))));
+ float fresnel=.035+.965*pow(1.-clamp(dot(n,view),0.,1.),5.);
+ vec3 sky=mix(vec3(.17,.26,.39),vec3(.78,.91,1.),smoothstep(-.8,.65,reflected.y));
+ color=mix(color,sky,fresnel*(.60+.30*uGlow));
+ color+=vec3(.96,.985,1.)*(windowLight*.44+glint*.4)+vec3(.07,.12,.16)*bounce*.4;
  color+=uSecondary*uAmplitude*.1;
  color+=vec3(.05,.12,.2)*sin(flow*12.-uTime)*uThinking;
- gl_FragColor=vec4(color,uOpacity*(.97-fresnel*.12));
+ gl_FragColor=vec4(max(color,vec3(0.)),uOpacity);
+ #include <colorspace_fragment>
 }`;
 type Props = {
   config: Effects["orb"];
@@ -208,27 +222,17 @@ export default function Orb(props: Props) {
           background: `radial-gradient(ellipse,${props.config.secondary}65,transparent 66%)`,
         }}
       />
+      <div className="orb-shadow" style={{ opacity: props.config.opacity }} />
       <div className="orb-canvas" ref={host} />
       {fallback && (
-        <div className="orb-fallback">
-          <svg viewBox="0 0 200 200" aria-hidden="true">
-            <defs>
-              <radialGradient id="orb-fallback">
-                <stop stopColor={props.config.secondary} />
-                <stop offset="1" stopColor={props.config.primary} />
-              </radialGradient>
-            </defs>
-            <circle cx="100" cy="100" r="85" fill="url(#orb-fallback)" />
-            <path
-              d="M22 100Q100 15 178 100Q100 185 22 100M40 50Q170 85 65 175"
-              fill="none"
-              stroke="white"
-              opacity=".3"
-              strokeWidth="8"
-            />
-          </svg>
-          <small>Simplified graphics</small>
-        </div>
+        <div
+          className="orb-fallback"
+          style={{
+            backgroundColor: props.config.primary,
+            backgroundImage: `radial-gradient(ellipse at 31% 19%, #ffffffe0, transparent 17%), radial-gradient(ellipse at 35% 28%, ${props.config.secondary} 4%, transparent 62%), linear-gradient(155deg, transparent 50%, #05173388 86%, ${props.config.secondary})`,
+            opacity: props.config.opacity,
+          }}
+        />
       )}
     </div>
   );

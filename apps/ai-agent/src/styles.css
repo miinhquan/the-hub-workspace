@@ -144,12 +144,12 @@ button:disabled {
   box-shadow: 0 3px 12px #164d9e14;
 }
 .brand > span {
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-size: clamp(20px, 2.5cqi, 30px);
+  letter-spacing: 0.035em;
   font-weight: 600;
-  max-width: 125px;
-  line-height: 1.7;
-  color: #34536f;
+  white-space: nowrap;
+  line-height: 1;
+  color: #183f68;
 }
 .header-actions {
   display: flex;
@@ -231,15 +231,17 @@ button:disabled {
   align-items: center;
   justify-content: center;
   width: 100%;
+}
+.experience-main:not(.welcome-main) {
   min-height: 650px;
 }
 .welcome-screen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+  --frame-limit: max(130px, calc(100svh - 208px));
+  --frame-inset: clamp(12px, 2cqi, 22px);
+  display: grid;
+  justify-items: center;
   width: 100%;
-  padding: 22px 22px 35px;
+  padding: 20px clamp(20px, 5cqi, 48px);
 }
 .eyebrow {
   font-size: 11px;
@@ -258,35 +260,19 @@ button:disabled {
   background: #2d74bb;
   box-shadow: 0 0 0 4px #247cd60a;
 }
-.welcome-screen h1 {
-  font-size: clamp(44px, 5.2vw, 76px);
-  font-weight: 500;
-  letter-spacing: -3px;
-  line-height: 1.12;
-  margin: 24px 0 17px;
-  color: #174370;
-}
-.welcome-screen h1 span {
-  color: #0546ac;
-}
-.welcome-screen > p,
 .home-screen > p {
   font-size: 17px;
   line-height: 1.8;
   color: #71869a;
   font-weight: 400;
 }
-.start-button-wrap {
-  position: relative;
-  display: grid;
-  place-items: center;
-  margin: 37px 0 29px;
-}
 .welcome-button {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  padding: 6px var(--frame-inset) var(--frame-inset);
   position: relative;
   border: 1px solid white;
   color: var(--brand);
@@ -305,55 +291,20 @@ button:disabled {
   display: block;
   position: relative;
   flex-shrink: 0;
-  margin-top: -20px;
+  aspect-ratio: 1;
   pointer-events: none;
 }
 .start-label {
-  position: absolute;
-  bottom: 17px;
-  z-index: 2;
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 12px;
+  padding: 5px 15px;
   border-radius: 20px;
   background: #ffffffb3;
-  backdrop-filter: blur(8px);
   font-size: 18px;
   font-weight: 500;
   letter-spacing: -0.2px;
-}
-.button-reflection {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    118deg,
-    #fff9,
-    transparent 36%,
-    transparent 62%,
-    #fff5
-  );
-  pointer-events: none;
-}
-.welcome-orbit {
-  position: absolute;
-  border: 1px solid #bed8f12c;
-  width: calc(100% + 84px);
-  height: calc(100% + 84px);
-  border-radius: 50%;
-  pointer-events: none;
-}
-.orbit-two {
-  width: calc(100% + 164px);
-  height: calc(100% + 164px);
-  border-style: dashed;
-  opacity: 0.45;
-  transform: rotate(-15deg);
-}
-.welcome-footnote {
-  font-size: 13px;
-  color: #8195a8;
-  letter-spacing: 0.2px;
 }
 .experience-footer {
   height: 73px;
@@ -575,6 +526,17 @@ button:disabled {
   position: absolute;
   inset: 0;
 }
+.orb-shadow {
+  position: absolute;
+  left: 23%;
+  right: 17%;
+  top: 89%;
+  height: 10%;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 46% 42%, #14355838, transparent 45%),
+    radial-gradient(ellipse, #365e882b 9%, transparent 69%);
+}
 .orb-canvas canvas {
   width: 100%;
   height: 100%;
@@ -593,20 +555,9 @@ button:disabled {
 }
 .orb-fallback {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  background: #f4f8fc;
-}
-.orb-fallback svg {
-  width: 90%;
-  height: 90%;
-}
-.orb-fallback small {
-  font-size: 9px;
-  color: #8293a5;
+  inset: 9%;
+  border-radius: 50%;
+  box-shadow: inset 0 0 3px #e7f6ff8a;
 }
 .voice-copy {
   text-align: center;
@@ -1823,6 +1774,8 @@ button:disabled {
   scrollbar-color: #ccdbe8 transparent;
 }
 .preview-device {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 1450px;
   min-height: 500px;
@@ -1837,6 +1790,7 @@ button:disabled {
   position: relative;
 }
 .preview-device > .experience {
+  flex: 1 0 auto;
   min-height: 100%;
   height: auto;
 }
@@ -1850,9 +1804,7 @@ button:disabled {
   border-radius: 10px;
 }
 .embedded .brand > span {
-  font-size: 7px;
-  letter-spacing: 1.5px;
-  max-width: 95px;
+  font-size: clamp(16px, 3cqi, 22px);
 }
 .embedded .header-actions {
   gap: 15px;
@@ -1863,7 +1815,7 @@ button:disabled {
 .embedded .language-button {
   font-size: 11px;
 }
-.embedded .experience-main {
+.embedded .experience-main:not(.welcome-main) {
   min-height: 450px;
 }
 .embedded .experience-footer {
@@ -1879,38 +1831,11 @@ button:disabled {
   letter-spacing: 1.5px;
 }
 .embedded .welcome-screen {
-  padding: 5px 20px 28px;
-}
-.embedded .welcome-screen h1 {
-  font-size: 43px;
-  letter-spacing: -1.7px;
-  margin: 18px 0 13px;
-}
-.embedded .welcome-screen > p {
-  font-size: 14px;
-  line-height: 1.7;
+  --frame-limit: 100%;
 }
 .embedded .eyebrow {
   font-size: 9px;
   letter-spacing: 1.7px;
-}
-.embedded .start-button-wrap {
-  margin-top: 26px;
-  margin-bottom: 25px;
-}
-.embedded .welcome-button {
-  zoom: 0.75;
-}
-.embedded .welcome-orbit {
-  width: calc(100% + 55px);
-  height: calc(100% + 55px);
-}
-.embedded .orbit-two {
-  width: calc(100% + 105px);
-  height: calc(100% + 105px);
-}
-.embedded .welcome-footnote {
-  font-size: 11px;
 }
 .embedded .home-screen {
   padding: 5px 22px 25px;
@@ -2417,7 +2342,7 @@ button:disabled {
   .embedded .topic-card strong {
     font-size: 16px;
   }
-  .embedded .experience-main {
+  .embedded .experience-main:not(.welcome-main) {
     min-height: 500px;
   }
   .embedded .home-screen h1 {
@@ -2454,11 +2379,6 @@ button:disabled {
     height: 43px;
     border-radius: 12px;
   }
-  .brand > span {
-    font-size: 8px;
-    max-width: 95px;
-    letter-spacing: 1.4px;
-  }
   .header-actions {
     gap: 12px;
   }
@@ -2476,32 +2396,8 @@ button:disabled {
   .fullscreen-button {
     width: 22px;
   }
-  .experience-main {
+  .experience-main:not(.welcome-main) {
     min-height: 650px;
-  }
-  .welcome-screen {
-    padding: 15px 22px 40px;
-  }
-  .welcome-screen h1 {
-    font-size: 45px;
-    letter-spacing: -1.8px;
-    margin-top: 25px;
-  }
-  .welcome-screen > p {
-    font-size: 17px;
-  }
-  .welcome-screen .eyebrow {
-    font-size: 7px;
-    letter-spacing: 1.7px;
-  }
-  .start-button-wrap {
-    margin-top: 41px;
-  }
-  .welcome-button {
-    zoom: 0.84;
-  }
-  .welcome-footnote {
-    font-size: 13px;
   }
   .experience-footer {
     height: 60px;
@@ -2670,10 +2566,6 @@ button:disabled {
     height: 64px;
     padding: 0 18px;
   }
-  .embedded .brand > span {
-    font-size: 6px;
-    max-width: 75px;
-  }
   .embedded .brand img {
     width: 33px;
     height: 33px;
@@ -2684,32 +2576,8 @@ button:disabled {
   .embedded .simulation-badge {
     font-size: 0;
   }
-  .embedded .experience-main {
+  .embedded .experience-main:not(.welcome-main) {
     min-height: 580px;
-  }
-  .embedded .welcome-screen {
-    padding-top: 10px;
-  }
-  .embedded .welcome-screen h1 {
-    font-size: 36px;
-    line-height: 1.15;
-    margin-top: 24px;
-  }
-  .embedded .welcome-screen > p {
-    font-size: 14px;
-  }
-  .embedded .welcome-screen .eyebrow {
-    font-size: 6px;
-    letter-spacing: 1.2px;
-  }
-  .embedded .welcome-button {
-    zoom: 0.7;
-  }
-  .embedded .start-button-wrap {
-    margin-top: 37px;
-  }
-  .embedded .welcome-footnote {
-    font-size: 11px;
   }
   .embedded .experience-footer {
     height: 50px;
@@ -3106,7 +2974,7 @@ button:disabled {
   flex-shrink: 0;
 }
 @media (min-width: 800px) and (max-height: 800px) {
-  .experience:not(.embedded) .experience-main {
+  .experience:not(.embedded) .experience-main:not(.welcome-main) {
     min-height: 520px;
   }
   .experience:not(.embedded) .experience-header {
@@ -3114,17 +2982,6 @@ button:disabled {
   }
   .experience:not(.embedded) .experience-footer {
     height: 55px;
-  }
-  .experience:not(.embedded) .welcome-screen h1 {
-    font-size: 54px;
-    margin-top: 18px;
-  }
-  .experience:not(.embedded) .welcome-button {
-    zoom: 0.77;
-  }
-  .experience:not(.embedded) .start-button-wrap {
-    margin-top: 23px;
-    margin-bottom: 23px;
   }
   .experience:not(.embedded) .home-screen {
     padding-top: 5px;

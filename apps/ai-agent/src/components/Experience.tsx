@@ -30,7 +30,7 @@ export function Brand() {
   return (
     <a href="/ai" className="brand" aria-label="The Hub — home">
       <img src="/images/the-hub-logo.webp" alt="The Hub" />
-      <span>LAUNDROMAT & TRAVEL</span>
+      <span>THE HUB</span>
     </a>
   );
 }
@@ -240,88 +240,63 @@ export function Experience({
           )}
         </div>
       </header>
-      <main className={`experience-main ${sim.content ? "has-content" : ""}`}>
+      <main
+        className={`experience-main ${welcome ? "welcome-main" : ""} ${sim.content ? "has-content" : ""}`}
+      >
         <AnimatePresence mode="wait">
           {welcome && (
             <motion.section
               key="welcome"
               className="welcome-screen"
+              aria-label="Welcome to The Hub"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: reduced ? 0.01 : 0.35 }}
             >
-              <span className="eyebrow welcome-eyebrow">
-                <span className="little-spark" />
-                YOUR HANOI ADVENTURE STARTS HERE
-              </span>
-              <h1>
-                Fresh clothes.
-                <br />
-                <span>New adventures.</span>
-              </h1>
-              <p>
-                A friendly local. A fresh perspective.
-                <br />
-                Make yourself at home at The Hub.
-              </p>
-              <div className="start-button-wrap">
-                <div className="welcome-orbit orbit-one" />
-                <div className="welcome-orbit orbit-two" />
-                <motion.button
-                  className="welcome-button"
-                  ref={welcomeButton}
-                  onClick={start}
-                  aria-label="Tap to Start"
-                  disabled={entering}
-                  style={{
-                    width: w.size,
-                    height: w.size,
-                    borderRadius: w.radius,
-                    background: `linear-gradient(145deg,rgba(255,255,255,${Math.min(1, w.opacity + 0.3)}),rgba(231,243,255,${w.opacity}))`,
-                    backdropFilter: `blur(${w.blur}px)`,
-                    borderColor: `rgba(255,255,255,${w.border})`,
-                    boxShadow: `inset 0 1px 2px #fff,0 ${12 + w.shadow * 25}px ${35 + w.shadow * 60}px -28px rgba(5,70,172,${w.shadow}),0 0 ${w.glow * 100}px rgba(133,193,251,${w.glow * 0.35})`,
-                  }}
-                  animate={
-                    !reduced && w.idle && !entering
-                      ? { y: [0, -6, 0] }
-                      : { y: 0 }
-                  }
-                  transition={{
-                    duration: 4 / speed,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                  whileHover={reduced ? {} : { scale: w.hover }}
-                  whileTap={reduced ? {} : { scale: w.press }}
+              <motion.button
+                className="welcome-button"
+                ref={welcomeButton}
+                onClick={start}
+                aria-label="Tap to Start"
+                disabled={entering}
+                style={{
+                  width: `min(100%, var(--frame-limit), max(${w.size}px, calc(${config.orb.size}px + 2 * var(--frame-inset))))`,
+                  borderRadius: w.radius,
+                  background: `linear-gradient(145deg,rgba(255,255,255,${Math.min(1, w.opacity + 0.3)}),rgba(231,243,255,${w.opacity}))`,
+                  backdropFilter: `blur(${w.blur}px)`,
+                  borderColor: `rgba(255,255,255,${w.border})`,
+                  boxShadow: `inset 0 1px 2px #fff,0 ${12 + w.shadow * 25}px ${35 + w.shadow * 60}px -28px rgba(5,70,172,${w.shadow}),0 0 ${w.glow * 100}px rgba(133,193,251,${w.glow * 0.35})`,
+                }}
+                animate={
+                  !reduced && w.idle && !entering ? { y: [0, -2, 0] } : { y: 0 }
+                }
+                transition={{
+                  duration: 4 / speed,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                whileHover={reduced ? {} : { scale: w.hover }}
+                whileTap={reduced ? {} : { scale: w.press }}
+              >
+                <div
+                  className="welcome-orb"
+                  aria-hidden="true"
+                  style={{ width: `min(100%, ${config.orb.size}px)` }}
                 >
-                  <div
-                    className="welcome-orb"
-                    aria-hidden="true"
-                    style={{
-                      width: Math.min(config.orb.size, w.size * 0.94),
-                      height: Math.min(config.orb.size, w.size * 0.94),
-                    }}
-                  >
-                    <Suspense fallback={<div className="orb-loading" />}>
-                      <Orb
-                        config={config.orb}
-                        state="IDLE"
-                        reduced={reduced}
-                        speed={speed}
-                      />
-                    </Suspense>
-                  </div>
-                  <span className="start-label">
-                    Tap to Start <ArrowRight size={15} />
-                  </span>
-                  <span className="button-reflection" />
-                </motion.button>
-              </div>
-              <span className="welcome-footnote">
-                A little help for wherever life takes you.
-              </span>
+                  <Suspense fallback={<div className="orb-loading" />}>
+                    <Orb
+                      config={config.orb}
+                      state="IDLE"
+                      reduced={reduced}
+                      speed={speed}
+                    />
+                  </Suspense>
+                </div>
+                <span className="start-label">
+                  Tap to Start <ArrowRight size={15} />
+                </span>
+              </motion.button>
             </motion.section>
           )}
           {home && (
@@ -550,7 +525,9 @@ export function Experience({
           <span className="location-dot" />
           48 Thuốc Bắc, Hanoi Old Quarter
         </span>
-        <span className="brand-tagline">FRESH CLOTHES FOR EVERY JOURNEY</span>
+        {!welcome && (
+          <span className="brand-tagline">FRESH CLOTHES FOR EVERY JOURNEY</span>
+        )}
         {!embedded ? (
           <a href="/ai/admin/effects" className="studio-link">
             <Settings2 size={14} />

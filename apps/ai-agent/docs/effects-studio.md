@@ -6,7 +6,7 @@ Open `/ai/admin/effects` and sign in with the preview administrator password. Op
 
 Choose **Welcome button**, **Transition**, **AI orb**, **Tour cards**, or **Global motion**. Every slider has an exact numeric input. Color pickers, effect switches, and the easing selector update the Draft canvas immediately. The operating system's reduced-motion preference always takes priority.
 
-Welcome settings change the glass button's size, corners, opacity, blur, reflection, glow, shadow, hover/press response and idle movement. Transition settings change the expansion duration, scale endpoints, fade/blur timing, background and easing. Spring stiffness and damping apply when the **spring** easing is selected.
+The welcome frame fits the orb and its tap label within the available space. **Orb size** sets the sphere's display area. **Minimum frame width** adds space around smaller orbs. Welcome settings also control the corners, opacity, blur, reflection, glow, shadow, hover/press response and idle movement. Transition settings change the expansion duration, scale endpoints, fade/blur timing, background and easing. Spring stiffness and damping apply when the **spring** easing is selected.
 
 Orb settings control its size/vertical offset, colors, halo, shader deformation/noise, speed, amplitude sensitivity, rotation, blur/opacity and per-state animation. Show **Listening**, **Thinking**, or **Speaking** in the Simulation Lab to compare the effect. Tour settings control card layout, image scale, blur/stagger, spring entrance, focus scale, opacity and mouse-drag sensitivity. Touch uses native momentum scrolling and snapping.
 

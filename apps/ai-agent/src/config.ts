@@ -89,7 +89,7 @@ const toggle = (key: string, label: string): Field => ({
 });
 export const fields: Record<Group, Field[]> = {
   welcome: [
-    range("size", "Button size", 180, 360, 1, "px"),
+    range("size", "Minimum frame width", 180, 540, 1, "px"),
     range("radius", "Corner radius", 16, 180, 1, "px"),
     range("opacity", "Glass opacity", 0.05, 1),
     range("blur", "Backdrop blur", 0, 48, 1, "px"),
