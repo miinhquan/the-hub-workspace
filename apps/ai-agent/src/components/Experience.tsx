@@ -14,7 +14,6 @@ import {
   PhoneOff,
   Settings2,
   Shirt,
-  Sparkles,
   TrainFront,
   Wifi,
   X,
@@ -304,12 +303,25 @@ export function Experience({
                   whileHover={reduced ? {} : { scale: w.hover }}
                   whileTap={reduced ? {} : { scale: w.press }}
                 >
-                  <span className="button-spark">
-                    <Sparkles size={27} strokeWidth={1.3} />
-                  </span>
-                  <span className="start-label">Tap to Start</span>
-                  <span className="start-arrow">
-                    <ArrowRight size={20} />
+                  <div
+                    className="welcome-orb"
+                    aria-hidden="true"
+                    style={{
+                      width: Math.min(config.orb.size, w.size * 0.94),
+                      height: Math.min(config.orb.size, w.size * 0.94),
+                    }}
+                  >
+                    <Suspense fallback={<div className="orb-loading" />}>
+                      <Orb
+                        config={config.orb}
+                        state="IDLE"
+                        reduced={reduced}
+                        speed={speed}
+                      />
+                    </Suspense>
+                  </div>
+                  <span className="start-label">
+                    Tap to Start <ArrowRight size={15} />
                   </span>
                   <span className="button-reflection" />
                 </motion.button>

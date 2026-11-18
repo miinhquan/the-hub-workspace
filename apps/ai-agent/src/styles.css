@@ -301,26 +301,27 @@ button:disabled {
   border-radius: inherit;
   pointer-events: none;
 }
-.button-spark {
-  display: flex;
-  color: #4f8aca;
+.welcome-orb {
+  display: block;
   position: relative;
-  margin-bottom: 19px;
+  flex-shrink: 0;
+  margin-top: -20px;
+  pointer-events: none;
 }
 .start-label {
-  font-size: 24px;
+  position: absolute;
+  bottom: 17px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: #ffffffb3;
+  backdrop-filter: blur(8px);
+  font-size: 15px;
   font-weight: 500;
-  letter-spacing: -0.5px;
-}
-.start-arrow {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  background: #fff9;
-  border: 1px solid white;
-  border-radius: 50%;
-  margin-top: 22px;
+  letter-spacing: -0.2px;
 }
 .button-reflection {
   position: absolute;
