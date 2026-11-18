@@ -2,6 +2,10 @@ export const kinds=['customers','inquiries','bookings','requests','operators','t
 export type Kind=typeof kinds[number];
 export type RecordItem={id:string;kind:Kind;data:Record<string,any>;status:string;version:number;createdAt:string;updatedAt:string;lastActivity:string;archivedAt:string|null;previousStatus:string|null};
 export const inquiryStatuses=['New','Quoted','Following Up','Waiting Customer','Waiting Operator','Ready to Book','Lost','Cancelled'];
+export function pendingInquiries(all:RecordItem[]){
+ const protectedIds=new Set(all.filter(r=>r.kind==='bookings'||(r.kind==='requests'&&['Pending','Booked'].includes(r.status))).map(r=>r.data.inquiryId));
+ return all.filter(r=>r.kind==='inquiries'&&!r.archivedAt&&r.status==='New'&&!protectedIds.has(r.id));
+}
 export function isStale(r:RecordItem,all:RecordItem[],now=Date.now()){
  return r.kind==='inquiries'&&!r.archivedAt&&!['Converted','Archived','Lost','Cancelled','Waiting Operator','Booking Requested','Booked','Completed'].includes(r.status)&&Date.parse(r.lastActivity)<=now-48*3600000&&!all.some(b=>b.kind==='bookings'&&b.data.inquiryId===r.id)&&!all.some(b=>b.kind==='requests'&&b.data.inquiryId===r.id&&['Pending','Booked'].includes(b.status));
 }

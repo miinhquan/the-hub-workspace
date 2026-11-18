@@ -52,3 +52,21 @@ seed('ticket','inquiries','New',{customerName:'Test'});await tickets.ticketOutco
 await tickets.ticketOutcome('owner',get('ticket'),{operatorId:'op',customerName:'Test'},'Booked','CONFIRMED');assert.equal(get('ticket').status,'Converted');assert.equal(sql.prepare("SELECT count(*) n FROM records WHERE kind='bookings'").get().n,2);await assert.rejects(()=>tickets.ticketOutcome('owner',{...get('ticket'),status:'New',version:1},{operatorId:'op'},'Booked','RETRY'));assert.equal(sql.prepare("SELECT count(*) n FROM records WHERE kind='bookings'").get().n,2);
 const endpoint=fs.readFileSync('app/api/workspace/route.ts','utf8');for(const match of endpoint.matchAll(/prepare\("(INSERT INTO records[^"\n]+ON CONFLICT[^"\n]+)"\)/g)){const placeholders=(match[1].match(/\?/g)||[]).length;assert.equal(placeholders,7);sql.prepare(match[1]).run('utility-test-'+Math.random(),'owner','{}','2026-11-01','2026-11-01','2026-11-01','test');}
 console.log('PASS: mandatory utilities + zero values, review stays valid after shop expenses, operator exclusion, currency isolation, analytics bins, Booked-only creation, no duplicate booking and monthly UPSERT SQL');
+
+// Monthly totals follow the recorded sale date and the Hanoi calendar boundary.
+const monthRows=[
+ row('late-entry','transactions',{amount:100000,currency:'VND',date:'2026-02-01'},'2026-03-01T01:00:00Z'),
+ row('refund','payments',{amount:25000,currency:'VND',type:'Refund',date:'2026-02-28'}),
+ row('other-currency','transactions',{amount:99,currency:'USD',date:'2026-02-12'}),
+ row('last-month','transactions',{amount:900,currency:'VND',date:'2026-01-31'}),
+ row('legacy-no-date','transactions',{amount:1000,currency:'VND'},'2026-01-31T17:15:00Z')
+];
+const february=chartSeries(monthRows,'1m','VND',Date.parse('2026-02-28T12:00:00Z'));
+assert.equal(february.length,28);
+assert.equal(february[0].at,Date.parse('2026-01-31T17:00:00Z'));
+assert.equal(february[0].value,101000);
+assert.equal(february[27].value,-25000);
+assert.equal(february.reduce((sum,bin)=>sum+bin.value,0),76000);
+assert.equal(chartSeries([],'1m','VND',Date.parse('2028-02-15T00:00:00Z')).length,29);
+assert.equal(chartSeries([],'1m','VND',Date.parse('2026-11-30T17:00:00Z')).length,31);
+console.log('PASS: calendar-month receipts, refunds, currency isolation, late entries and Hanoi month boundaries');

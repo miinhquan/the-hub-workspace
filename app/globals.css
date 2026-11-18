@@ -44,3 +44,25 @@ html[data-theme="dark"]{color-scheme:dark;--blue:#75a9ff;--ink:#e3eaf5;--muted:#
 .unpaid-bookings-select option{background:var(--paper);color:var(--ink)}
 .cancel-booking-form{display:grid;gap:12px}
 .cancel-booking-form .dialog-footer{flex-wrap:wrap}
+
+/* Keep dashboard lists compact as the inbox and queue grow. */
+.wa-inbox.wa-compact,.control-center .queue-tile{align-self:start}
+.wa-compact .wa-layout{height:auto;min-height:0;flex:none}
+.wa-compact .wa-sidebar{height:auto}
+.wa-compact .wa-conversations{flex:none;max-height:380px;overflow-y:auto}
+.queue-tile .work-list{flex:none;height:auto;min-height:0;max-height:380px;overflow-y:auto}
+.wa-title button{flex-shrink:0}
+.wa-chat-header b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-person-details b{line-height:1.4}
+.desk-tile .list-controls{display:flex;align-items:center;gap:16px;padding:10px 14px;border-top:1px solid var(--line)}
+.list-controls small{margin-left:auto}
+.queue-actions{display:flex;justify-content:flex-end;padding:8px 14px;border-bottom:1px solid var(--line)}
+button.pending-clear{color:#b83242;border-color:#dca7ae}
+button.pending-clear:hover{background:#b8324212}
+html[data-theme="dark"] button.pending-clear{color:#ffb4bc;border-color:#ad5e6b}
+.pending-dialog{max-width:480px;padding:22px}
+.pending-dialog>p{margin:18px 0;line-height:1.6}
+.pending-dialog-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.queue-notice,.analytics-period{margin:0;padding:10px 16px;font-size:12px;color:var(--muted)}
+.chart-controls>div{flex-wrap:wrap}
+@media(max-width:680px){.wa-person-meta{max-width:64px}.queue-tile>header{flex-wrap:wrap}.chart-controls strong{font-size:17px}}
