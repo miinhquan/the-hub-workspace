@@ -372,23 +372,6 @@ export function Experience({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <AnimatePresence>
-                {sim.content && (
-                  <TourCards
-                    key="tours"
-                    config={config.cards}
-                    detailRequest={sim.detailRequest}
-                    destination={sim.destination}
-                    reduced={reduced}
-                    speed={speed}
-                    onBack={sim.returnOrb}
-                    onDetails={(id) =>
-                      sim.log(`view_tour_details(${id})`, "function")
-                    }
-                    onInquiry={inquiry}
-                  />
-                )}
-              </AnimatePresence>
               <motion.div
                 layout
                 className="conversation-focus"
@@ -413,30 +396,45 @@ export function Experience({
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <motion.div
-                  layout
-                  className="orb-stage"
-                  style={{
-                    width: sim.content ? 128 : config.orb.size,
-                    height: sim.content ? 128 : config.orb.size,
-                    marginTop: config.orb.position,
-                  }}
-                  transition={
-                    reduced
-                      ? { duration: 0.01 }
-                      : { type: "spring", stiffness: 65, damping: 18 }
+                <TourCards
+                  visible={sim.content}
+                  config={config.cards}
+                  detailRequest={sim.detailRequest}
+                  destination={sim.destination}
+                  reduced={reduced}
+                  speed={speed}
+                  onBack={sim.returnOrb}
+                  onDetails={(id) =>
+                    sim.log(`view_tour_details(${id})`, "function")
                   }
+                  onInquiry={inquiry}
                 >
-                  <Suspense fallback={<div className="orb-loading" />}>
-                    <Orb
-                      config={config.orb}
-                      state={orbState(sim.state)}
-                      muted={muted}
-                      reduced={reduced}
-                      speed={speed}
-                    />
-                  </Suspense>
-                </motion.div>
+                  <motion.div
+                    layout="position"
+                    className="orb-stage"
+                    style={
+                      {
+                        "--orb-size": `${config.orb.size}px`,
+                        "--orb-offset": `${config.orb.position}px`,
+                      } as CSSProperties
+                    }
+                    transition={
+                      reduced
+                        ? { duration: 0.01 }
+                        : { type: "spring", stiffness: 65, damping: 18 }
+                    }
+                  >
+                    <Suspense fallback={<div className="orb-loading" />}>
+                      <Orb
+                        config={config.orb}
+                        state={orbState(sim.state)}
+                        muted={muted}
+                        reduced={reduced}
+                        speed={speed}
+                      />
+                    </Suspense>
+                  </motion.div>
+                </TourCards>
                 <div
                   className="voice-copy"
                   aria-live="polite"

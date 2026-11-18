@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  ArrowDownLeft,
+  ArrowUpRight,
   ArrowLeft,
   ArrowRight,
   Check,
   Clock3,
-  MapPin,
+  Pause,
+  Play,
   X,
 } from "lucide-react";
 import type { Effects } from "../config";
@@ -62,6 +64,10 @@ export function TourDetails({
         <div className="detail-copy">
           <span className="eyebrow">{tour.destination} · DEMO ITINERARY</span>
           <h2 id="tour-title">{tour.title}</h2>
+          <p className="detail-duration">
+            <Clock3 size={15} />
+            {tour.duration}
+          </p>
           <p>{tour.description}</p>
           <div className="detail-highlights">
             {tour.highlights.map((h) => (
@@ -93,6 +99,8 @@ export function TourDetails({
   );
 }
 export function TourCards({
+  children,
+  visible,
   config,
   destination,
   onBack,
@@ -102,6 +110,8 @@ export function TourCards({
   speed,
   detailRequest,
 }: {
+  children: ReactNode;
+  visible: boolean;
   config: Effects["cards"];
   destination: string;
   onBack: () => void;
@@ -111,263 +121,235 @@ export function TourCards({
   speed: number;
   detailRequest: number;
 }) {
-  const [list, setList] = useState<Tour[]>([]),
-    [selected, setSelected] = useState<Tour | null>(null),
-    [index, setIndex] = useState(0);
+  const [collection, setCollection] = useState<{
+    destination: string;
+    tours: Tour[];
+  }>();
+  const [enlarged, setEnlarged] = useState<string[]>([]);
+  const [detail, setDetail] = useState<Tour | null>(null);
+  const [paused, setPaused] = useState(false);
   const lastDetail = useRef(0);
+  const turn = useRef(0);
+  const drag = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    turn: number;
+  } | null>(null);
+  const dragged = useRef(false);
+  const tours =
+    collection?.destination === destination ? collection.tours : undefined;
+
   useEffect(() => {
-    if (detailRequest > lastDetail.current && list.length) {
-      lastDetail.current = detailRequest;
-      setSelected(list[0]);
-      onDetails(list[0].id);
-    }
-  }, [detailRequest, list, onDetails]);
-  const rail = useRef<HTMLDivElement>(null),
-    drag = useRef<{
-      x: number;
-      scroll: number;
-      last: number;
-      time: number;
-      velocity: number;
-    } | null>(null),
-    dragged = useRef(false),
-    frame = useRef(0);
-  useEffect(() => {
+    if (!visible) return;
     let active = true;
-    new MockTourProvider().list(destination).then((data) => {
-      if (active) {
-        setList(data);
-        setIndex(0);
-        rail.current?.scrollTo({ left: 0 });
-      }
+    new MockTourProvider().list(destination).then((result) => {
+      if (active) setCollection({ destination, tours: result });
     });
     return () => {
       active = false;
     };
-  }, [destination]);
-  useEffect(() => () => cancelAnimationFrame(frame.current), []);
-  const open = (tour: Tour) => {
-    if (dragged.current) return;
-    setSelected(tour);
-    onDetails(tour.id);
+  }, [visible, destination]);
+
+  const enlarge = useCallback((id: string) => {
+    setEnlarged((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }, []);
+  const openDetails = useCallback(
+    (tour: Tour) => {
+      enlarge(tour.id);
+      setDetail(tour);
+      onDetails(tour.id);
+    },
+    [enlarge, onDetails],
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      setDetail(null);
+      drag.current = null;
+      dragged.current = false;
+    }
+    if (!detailRequest) lastDetail.current = 0;
+    if (visible && detailRequest > lastDetail.current && tours?.length) {
+      lastDetail.current = detailRequest;
+      openDetails(tours[0]);
+    }
+  }, [visible, detailRequest, tours, openDetails]);
+
+  const rotate = (event: PointerEvent<HTMLDivElement>) => {
+    const start = drag.current;
+    if (!start || event.pointerId !== start.id || event.buttons !== 1) return;
+    const dx = event.clientX - start.x;
+    if (!dragged.current) {
+      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(event.clientY - start.y))
+        return;
+      dragged.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    turn.current =
+      (start.turn +
+        (dx / event.currentTarget.clientWidth) * 100 * config.swipe) %
+      100;
+    event.currentTarget.style.setProperty("--orbit-shift", `${turn.current}%`);
   };
-  const move = (direction: number) =>
-    rail.current?.scrollBy({
-      left: (config.width + config.gap) * direction,
-      behavior: reduced ? "instant" : "smooth",
-    });
-  const release = () => {
-    const d = drag.current;
-    drag.current = null;
-    if (!d || !rail.current) return;
-    const node = rail.current;
-    node.style.scrollSnapType = "";
-    if (reduced) return;
-    let velocity = d.velocity;
-    const tick = () => {
-      velocity *= 0.92;
-      node.scrollLeft -= velocity * 16;
-      if (Math.abs(velocity) > 0.08)
-        frame.current = requestAnimationFrame(tick);
-      else
-        node.scrollTo({
-          left:
-            Math.round(node.scrollLeft / (config.width + config.gap)) *
-            (config.width + config.gap),
-          behavior: "smooth",
-        });
-    };
-    frame.current = requestAnimationFrame(tick);
-  };
+  const geometry = {
+    "--card-width": config.width,
+    "--orbit-height": `${config.height}px`,
+    "--orbit-spacing": `${config.gap / 2}px`,
+    "--enlarged-scale": config.focus,
+    "--card-radius": `${config.radius}px`,
+    "--image-scale": config.imageScale,
+    "--glass-opacity": config.opacity,
+    "--idle-blur": `${Math.min(2.5, config.blur / 7)}px`,
+    "--orbit-period": `${128 / speed}s`,
+    "--photo-transition": `${reduced ? 0 : config.duration / speed}s`,
+  } as CSSProperties;
+
   return (
-    <motion.section
-      className="tour-panel glass"
-      initial={{
-        opacity: 0,
-        y: reduced ? 0 : 35,
-        scale: reduced ? 1 : 0.97,
-        borderRadius: 80,
-      }}
-      animate={{ opacity: 1, y: 0, scale: 1, borderRadius: 32 }}
-      exit={{ opacity: 0, y: 20, scale: 0.97 }}
-      transition={{
-        duration: config.duration / speed,
-        type: "spring",
-        bounce: reduced ? 0 : config.spring,
-      }}
-      aria-label="Explore Vietnam tours"
-    >
-      <div className="tour-heading">
-        <div>
-          <span className="eyebrow">GOOD PLACES. GREAT STORIES.</span>
-          <h2>Your next adventure.</h2>
-        </div>
-        <button className="text-button" onClick={onBack}>
-          <ArrowDownLeft size={16} />
-          Back to our conversation
-        </button>
-      </div>
-      <div
-        className="tour-rail"
-        ref={rail}
-        tabIndex={0}
-        aria-label="Swipe through sample tours"
-        style={{ gap: config.gap }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") {
-            e.preventDefault();
-            move(1);
-          }
-          if (e.key === "ArrowLeft") {
-            e.preventDefault();
-            move(-1);
-          }
-        }}
-        onScroll={() => {
-          if (rail.current)
-            setIndex(
-              Math.round(rail.current.scrollLeft / (config.width + config.gap)),
-            );
-        }}
-        onPointerDown={(e) => {
-          if (e.pointerType !== "mouse") return;
-          cancelAnimationFrame(frame.current);
-          dragged.current = false;
-          drag.current = {
-            x: e.clientX,
-            scroll: e.currentTarget.scrollLeft,
-            last: e.clientX,
-            time: performance.now(),
-            velocity: 0,
-          };
-        }}
-        onPointerMove={(e) => {
-          const d = drag.current;
-          if (!d) return;
-          const diff = e.clientX - d.x;
-          if (Math.abs(diff) > 5) {
-            dragged.current = true;
-            e.currentTarget.style.scrollSnapType = "none";
-            e.currentTarget.setPointerCapture(e.pointerId);
-          }
-          const now = performance.now();
-          d.velocity =
-            ((e.clientX - d.last) / Math.max(1, now - d.time)) * config.swipe;
-          d.last = e.clientX;
-          d.time = now;
-          e.currentTarget.scrollLeft = d.scroll - diff * config.swipe;
-        }}
-        onPointerUp={release}
-        onPointerCancel={release}
-        onLostPointerCapture={() => {
-          drag.current = null;
-        }}
-      >
-        <AnimatePresence mode="popLayout">
-          {list.map((tour, i) => (
-            <motion.article
-              key={tour.id}
-              layout
-              className="tour-card"
-              style={{
-                width: config.width,
-                minHeight: config.height,
-                borderRadius: config.radius,
-                background: `rgba(255,255,255,${config.opacity})`,
-              }}
-              initial={{
-                opacity: 0,
-                scale: reduced ? 1 : 0.92,
-                y: reduced ? 0 : 30,
-                filter: `blur(${reduced ? 0 : config.blur}px)`,
-              }}
-              animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-              exit={{
-                opacity: 0,
-                scale: 0.94,
-                filter: `blur(${reduced ? 0 : config.blur}px)`,
-              }}
-              transition={{
-                duration: config.duration / speed,
-                delay: reduced ? 0 : (i * config.stagger) / speed,
-                type: "spring",
-                bounce: config.spring,
-              }}
-              whileHover={reduced ? {} : { scale: config.focus }}
+    <>
+      {visible && (
+        <div className="orbit-heading">
+          <h2>Explore Vietnam</h2>
+          <div className="orbit-actions">
+            {!reduced && (
+              <button
+                className="icon-button"
+                onClick={() => setPaused(!paused)}
+                aria-label={paused ? "Resume tour orbit" : "Pause tour orbit"}
+                title={paused ? "Resume tour orbit" : "Pause tour orbit"}
+              >
+                {paused ? <Play size={16} /> : <Pause size={16} />}
+              </button>
+            )}
+            <button
+              className="text-button"
+              onClick={onBack}
+              aria-label="Back to conversation"
             >
-              <div className="tour-photo">
-                <img
-                  src={tour.image}
-                  alt={`${tour.destination}, Vietnam`}
-                  draggable={false}
-                  loading={i === 0 ? "eager" : "lazy"}
-                  style={{ transform: `scale(${config.imageScale})` }}
-                  onLoad={(e) => e.currentTarget.classList.add("loaded")}
-                />
-                <span>{tour.tag}</span>
-              </div>
-              <div className="tour-copy">
-                <p className="tour-location">
-                  <MapPin size={12} />
-                  {tour.destination}
-                </p>
-                <h3>{tour.title}</h3>
-                <p className="tour-description">{tour.description}</p>
-                <div className="tour-meta">
-                  <Clock3 size={13} />
-                  {tour.duration}
-                </div>
-                <div className="card-highlights">
-                  {tour.highlights.slice(0, 2).map((h) => (
-                    <span key={h}>{h}</span>
-                  ))}
-                </div>
-                <button className="card-link" onClick={() => open(tour)}>
-                  View details <ArrowRight size={17} />
-                </button>
-              </div>
-            </motion.article>
-          ))}
-        </AnimatePresence>
-      </div>
-      <div className="tour-bottom">
-        <p>Sample experiences · Details confirmed by our team</p>
-        <div className="rail-controls">
-          <span className="rail-count">
-            {String(Math.min(index + 1, list.length)).padStart(2, "0")} /{" "}
-            {String(list.length).padStart(2, "0")}
-          </span>
-          <button
-            className="icon-button"
-            onClick={() => move(-1)}
-            aria-label="Previous tour"
-            disabled={index <= 0}
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <button
-            className="icon-button"
-            onClick={() => move(1)}
-            aria-label="Next tour"
-            disabled={index >= list.length - 1}
-          >
-            <ArrowRight size={16} />
-          </button>
+              <ArrowLeft size={16} />{" "}
+              <span>
+                Back<span className="back-context"> to conversation</span>
+              </span>
+            </button>
+          </div>
         </div>
+      )}
+      <div
+        className={`session-visual${visible ? " tour-scene" : ""}`}
+        style={visible ? geometry : undefined}
+      >
+        {children}
+        {visible && (
+          <div
+            className="tour-orbit"
+            role="group"
+            aria-label="Orbiting tour photos"
+            style={
+              {
+                "--orbit-shift": `${turn.current}%`,
+                animationPlayState: reduced || paused ? "paused" : "running",
+              } as CSSProperties
+            }
+            onPointerDown={(event) => {
+              if (!event.isPrimary || event.button !== 0) return;
+              dragged.current = false;
+              drag.current = {
+                id: event.pointerId,
+                x: event.clientX,
+                y: event.clientY,
+                turn: turn.current,
+              };
+            }}
+            onPointerMove={rotate}
+            onPointerUp={() => {
+              drag.current = null;
+            }}
+            onPointerCancel={() => {
+              drag.current = null;
+            }}
+            onClickCapture={(event) => {
+              if (dragged.current && event.detail > 0) {
+                dragged.current = false;
+                event.stopPropagation();
+              }
+            }}
+          >
+            <div className="tour-path">
+              {tours?.map((tour, index) => {
+                const isEnlarged = enlarged.includes(tour.id);
+                return (
+                  <div
+                    className="orbit-satellite"
+                    key={tour.id}
+                    style={
+                      {
+                        "--start-distance": `${62.5 + (index * 100) / tours.length}%`,
+                      } as CSSProperties
+                    }
+                  >
+                    <motion.article
+                      className="orbit-card"
+                      data-enlarged={isEnlarged}
+                      initial={{ opacity: 0, scale: reduced ? 1 : 0.72 }}
+                      animate={{
+                        opacity: 1,
+                        scale: isEnlarged ? config.focus : 0.79,
+                        rotate: isEnlarged ? 0 : index % 2 === 0 ? -3 : 3,
+                      }}
+                      transition={{
+                        duration: reduced ? 0 : config.duration / speed,
+                        type: reduced ? "tween" : "spring",
+                        bounce: config.spring,
+                        opacity: {
+                          duration: reduced ? 0 : config.duration / speed,
+                          delay: reduced ? 0 : (index * config.stagger) / speed,
+                        },
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="orbit-photo"
+                        aria-label={`Enlarge ${tour.destination} photo`}
+                        aria-pressed={isEnlarged}
+                        onClick={() => enlarge(tour.id)}
+                      >
+                        <img src={tour.image} alt="" draggable={false} />
+                        <span className="orbit-place">{tour.destination}</span>
+                      </button>
+                      {isEnlarged && (
+                        <button
+                          className="orbit-details"
+                          type="button"
+                          aria-label={`View details for ${tour.title}`}
+                          title={`View details for ${tour.title}`}
+                          onClick={() => openDetails(tour)}
+                        >
+                          <span>View details</span>
+                          <ArrowUpRight size={16} />
+                        </button>
+                      )}
+                    </motion.article>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
       <AnimatePresence>
-        {selected && (
+        {visible && detail && (
           <TourDetails
-            tour={selected}
+            key={detail.id}
+            tour={detail}
             reduced={reduced}
-            onClose={() => setSelected(null)}
+            onClose={() => setDetail(null)}
             onInquiry={() => {
-              setSelected(null);
+              setDetail(null);
               onInquiry();
             }}
           />
         )}
       </AnimatePresence>
-    </motion.section>
+    </>
   );
 }

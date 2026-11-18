@@ -26,7 +26,7 @@ npm run dev
 Open `http://127.0.0.1:4173/ai`. The generated `.local/admin-password.txt` signs into the local Studio. `.local/session-secret.txt` signs the admin cookie. Both files are ignored by Git. The development server binds only to loopback and emulates API persistence with checkout-local files. Local server storage is unrelated to preview KV.
 
 ```sh
-npm run check       # ESLint, 27 automated tests, TypeScript, Vite, Worker bundle
+npm run check       # ESLint, automated tests, TypeScript, Vite, Worker bundle
 npm run format      # Format source for review
 ```
 
@@ -38,7 +38,7 @@ The preview admin password is generated outside source and bound as a Cloudflare
 |---|---|
 | `src/components/Experience.tsx` | Welcome, liquid expansion, Home, conversation and kiosk controls |
 | `src/components/Orb.tsx` | Original animated GLSL sphere, simulated amplitude, adaptive pixel ratio, context fallback and resource disposal |
-| `src/components/TourCards.tsx` | Touch scrolling, mouse drag with inertia, snapping, stagger/blur entrance, filtered replacement and native modal details |
+| `src/components/TourCards.tsx` | Orbiting destination photos, persistent in-place enlargement, drag rotation, destination filtering and native tour details |
 | `src/config.ts` | All effect defaults, inspector metadata and shared runtime validation |
 | `src/engine/machine.ts` | Legal conversation transitions and simulated amplitude |
 | `src/engine/useSimulation.ts` | Cancelable scenario timers, pause/resume/step/replay, timeline and manual state previews |

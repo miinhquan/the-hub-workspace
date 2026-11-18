@@ -131,7 +131,7 @@ export function useSimulation() {
     const delay = remaining.current || step.delay;
     remaining.current = 0;
     due.current = Date.now() + delay;
-    timer.current = setTimeout(() => {
+    const playbackTimer = setTimeout(() => {
       timer.current = null;
       const next = cursor + 1;
       if (next < sequence.current.length) {
@@ -142,8 +142,12 @@ export function useSimulation() {
         log("Scenario complete", "system");
       }
     }, delay);
-    return clear;
-  }, [playing, cursor, playbackId, apply, clear, log]);
+    timer.current = playbackTimer;
+    return () => {
+      clearTimeout(playbackTimer);
+      if (timer.current === playbackTimer) timer.current = null;
+    };
+  }, [playing, cursor, playbackId, apply, log]);
   const pause = useCallback(() => {
     remaining.current = Math.max(1, due.current - Date.now());
     clear();

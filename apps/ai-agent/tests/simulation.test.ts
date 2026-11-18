@@ -80,4 +80,17 @@ describe("Simulation playback lifecycle", () => {
     expect(result.current.scenario).toBe("laundry");
     expect(vi.getTimerCount()).toBe(1);
   });
+  it("returns to Welcome when a visitor ends a tour while the scenario is still playing", () => {
+    const { result } = renderHook(() => useSimulation());
+    act(() => result.current.start("hagiang"));
+    for (const delay of [650, 1300, 1700, 4300]) {
+      act(() => vi.advanceTimersByTime(delay));
+    }
+    expect(result.current.content).toBe(true);
+    expect(result.current.playing).toBe(true);
+    act(() => result.current.end());
+    act(() => vi.advanceTimersByTime(850));
+    expect(result.current.state).toBe("WELCOME");
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });

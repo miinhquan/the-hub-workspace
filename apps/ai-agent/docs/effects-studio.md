@@ -8,7 +8,11 @@ Choose **Welcome button**, **Transition**, **AI orb**, **Tour cards**, or **Glob
 
 The welcome frame fits the orb and its tap label within the available space. **Orb size** sets the sphere's display area. **Minimum frame width** adds space around smaller orbs. Welcome settings also control the corners, opacity, blur, reflection, glow, shadow, hover/press response and idle movement. Transition settings change the expansion duration, scale endpoints, fade/blur timing, background and easing. Spring stiffness and damping apply when the **spring** easing is selected.
 
-Orb settings control its size/vertical offset, colors, halo, shader deformation/noise, speed, amplitude sensitivity, rotation, blur/opacity and per-state animation. Show **Listening**, **Thinking**, or **Speaking** in the Simulation Lab to compare the effect. Tour settings control card layout, image scale, blur/stagger, spring entrance, focus scale, opacity and mouse-drag sensitivity. Touch uses native momentum scrolling and snapping.
+Orb settings control its size/vertical offset, colors, halo, shader deformation/noise, speed, amplitude sensitivity, rotation, blur/opacity and per-state animation. Show **Listening**, **Thinking**, or **Speaking** in the Simulation Lab to compare the effect.
+
+In **Show tours**, destination photos travel around the conversation orb. Tap a photo to enlarge and sharpen it in place. Each photo you choose keeps its size and clarity for the current session, including when you close **View details**. Drag or swipe horizontally to turn the orbit, or use **Pause tour orbit** to hold the photos still. Reduced motion presents the same arrangement with stationary photos.
+
+**Tour cards** controls the photo width and crop, orbit height and spacing, glass finish, softness, stagger, spring, enlarged scale and drag sensitivity. The orbit fits the canvas and reserves room for every photo to be enlarged at once.
 
 ## Preview a sequence
 
