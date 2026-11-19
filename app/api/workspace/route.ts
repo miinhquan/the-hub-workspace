@@ -9,7 +9,18 @@ import {kinds,inquiryStatuses,paymentSummary} from '@/lib/domain';
 export const dynamic='force-dynamic';
 const json=(v:any,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
 function error(e:any){return json({error:e.message==='AUTH_REQUIRED'?'Please sign in to your private workspace.':e.message},e.message==='AUTH_REQUIRED'?401:400);}
-export async function GET(){try{const u=await owner();await archiveStale(u.userId);const records=await allRecords(u.userId);const events=(await database().prepare('SELECT * FROM events WHERE owner=? ORDER BY at DESC LIMIT 1500').bind(u.userId).all()).results;return json({records,events,user:{name:u.displayName,email:u.email,role:u.role,provider:'provider' in u?u.provider:'local'},archiveMode:'on_access',integrations:{whatsappConfigured:!!((env as any).META_APP_SECRET||(env as any).WHATSAPP_APP_SECRET)&&!!(env as any).WHATSAPP_PHONE_NUMBER_ID}});}catch(e){return error(e);}}
+export async function GET(req:Request){
+ try{
+  const u=await owner(req);
+  const scheduled=env.HUB_ARCHIVE_ON_SCHEDULE==='true';
+  if(!scheduled)await archiveStale(u.userId);
+  const [records,{results:events}]=await Promise.all([
+   allRecords(u.userId),
+   database().prepare('SELECT * FROM events WHERE owner=? ORDER BY at DESC LIMIT 1500').bind(u.userId).all()
+  ]);
+  return json({records,events,user:{name:u.displayName,email:u.email,role:u.role,provider:'provider' in u?u.provider:'local'},archiveMode:scheduled?'scheduled':'on_access',integrations:{whatsappConfigured:!!((env as any).META_APP_SECRET||(env as any).WHATSAPP_APP_SECRET)&&!!(env as any).WHATSAPP_PHONE_NUMBER_ID}});
+ }catch(e){return error(e);}
+}
 function clean(data:any){if(!data||typeof data!=='object'||Array.isArray(data)||JSON.stringify(data).length>300000)throw new Error('Invalid record');for(const [k,v] of Object.entries(data)){if(['__proto__','prototype','constructor'].includes(k))throw new Error('Invalid field');if(typeof v==='string'&&v.length>12000)throw new Error('Text is too long');}return data;}
 export async function POST(req:Request){try{const u=await owner();sameOrigin(req);const body:any=await req.json(),action=body.action;const all=await allRecords(u.userId);const ref=(id:string,kind:string)=>{const r=all.find(x=>x.id===id&&x.kind===kind);if(!r)throw new Error('Select a valid '+kind+' record');return r;};
  if(action==='clearPending'){

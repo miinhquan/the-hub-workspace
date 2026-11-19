@@ -31,10 +31,40 @@ export default function Workspace(){const {t,locale}=useLocale();
  useEffect(()=>{let saved=null;try{saved=localStorage.getItem('hub-workspace-theme');}catch{}const enabled=saved?saved==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;setDark(enabled);document.documentElement.dataset.theme=enabled?'dark':'light';},[]);
  function toggleTheme(){const enabled=!dark;setDark(enabled);document.documentElement.dataset.theme=enabled?'dark':'light';try{localStorage.setItem('hub-workspace-theme',enabled?'dark':'light');}catch{}}
  const dialog=useRef<HTMLDialogElement>(null);const seenMessages=useRef<Set<string>|null>(null);
+ const loadSequence=useRef(0),loadingWorkspace=useRef(false);
  const list=(kind:string)=>records.filter(r=>r.kind===kind);const found=(id:string)=>records.find(x=>x.id===id);const current=found(selected||'');const settings=list('settings')[0];const title=page==='account'?'My account':nav.find(x=>x[0]===page)?.[1]||page;
  const notify=(s:string)=>{setToast(s);setTimeout(()=>setToast(''),4500);};
- async function load(){try{const r=await fetch('/api/workspace',{cache:'no-store'});const d:any=await r.json();if(r.status===401){window.dispatchEvent(new Event('hub-session-expired'));return;}if(!r.ok)throw new Error(d.error);const incoming=d.records.filter((r:RecordItem)=>r.kind==='notifications');if(seenMessages.current&&typeof Notification!=='undefined'&&Notification.permission==='granted'){for(const m of incoming)if(!seenMessages.current.has(m.id)&&m.status!=='Read')new Notification('The Hub · '+m.data.name,{body:'New WhatsApp message. Open Workspace to view.',tag:m.id});}seenMessages.current=new Set(incoming.map((r:RecordItem)=>r.id));setRecords(d.records);setEvents(d.events);setUser(d.user);setWaConnected(!!d.integrations?.whatsappConfigured);setError('');}catch(e:any){setError(e.message);}finally{setLoading(false);}}
- useEffect(()=>{if(window.innerWidth<980)setRight(false);load();const timer=setInterval(load,15000);return ()=>clearInterval(timer);},[]);
+ async function load(){
+  const sequence=++loadSequence.current;
+  loadingWorkspace.current=true;
+  try{
+   const r=await fetch('/api/workspace',{cache:'no-store'});
+   if(sequence!==loadSequence.current)return;
+   if(r.status===401){window.dispatchEvent(new Event('hub-session-expired'));return;}
+   const d:any=await r.json();
+   if(sequence!==loadSequence.current)return;
+   if(!r.ok)throw new Error(d.error);
+   const incoming=d.records.filter((r:RecordItem)=>r.kind==='notifications');
+   if(seenMessages.current&&typeof Notification!=='undefined'&&Notification.permission==='granted'){for(const m of incoming)if(!seenMessages.current.has(m.id)&&m.status!=='Read')new Notification('The Hub · '+m.data.name,{body:'New WhatsApp message. Open Workspace to view.',tag:m.id});}
+   seenMessages.current=new Set(incoming.map((r:RecordItem)=>r.id));
+   setRecords(d.records);setEvents(d.events);setUser(d.user);setWaConnected(!!d.integrations?.whatsappConfigured);setError('');
+  }catch(e:any){
+   if(sequence===loadSequence.current)setError(e.message);
+  }finally{
+   if(sequence===loadSequence.current){loadingWorkspace.current=false;setLoading(false);}
+  }
+ }
+ useEffect(()=>{
+  if(window.innerWidth<980)setRight(false);
+  const refresh=()=>{
+   const desktopAlerts=typeof Notification!=='undefined'&&Notification.permission==='granted';
+   if((document.visibilityState==='visible'||desktopAlerts)&&!loadingWorkspace.current)void load();
+  };
+  void load();
+  const timer=setInterval(refresh,60000);
+  document.addEventListener('visibilitychange',refresh);
+  return()=>{++loadSequence.current;loadingWorkspace.current=false;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+ },[]);
  useEffect(()=>{if(modal){dialog.current?.showModal();const close=()=>setModal(null);const node=dialog.current;node?.addEventListener('cancel',close);return ()=>node?.removeEventListener('cancel',close);}else dialog.current?.close();},[modal]);
  const go=(p:string)=>{setPage(p);setSearch('');setStatusFilter('');setSelected(null);};
  async function act(action:string,data:any={}){setBusy(true);try{const r=await fetch('/api/workspace',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...data})});const d:any=await r.json();if(!r.ok)throw new Error(d.error);await load();notify('Saved to workspace');return d;}catch(e:any){notify(e.message);return null;}finally{setBusy(false);}}

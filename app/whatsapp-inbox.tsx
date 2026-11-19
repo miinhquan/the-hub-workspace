@@ -11,7 +11,8 @@ const time=(ms:number,locale='en-GB')=>ms?new Date(ms).toLocaleString(locale,{ti
 async function api(url:string,body?:any){const r=await fetch(url,{cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const d:any=await r.json();if(r.status===401)window.dispatchEvent(new Event('hub-session-expired'));if(!r.ok)throw Object.assign(new Error(d.error||'WhatsApp request failed'),{code:d.code});return d;}
 export default function WhatsAppInbox({compact=false,initialId,onOpen,openInquiry,onChange}:{compact?:boolean;initialId?:string;onOpen?:(id?:string)=>void;openInquiry:(id:string)=>void;onChange?:()=>void}){const {t,locale}=useLocale();
  const [data,setData]=useState<any>({conversations:[],config:{missing:[]}}),[selected,setSelected]=useState(initialId||''),[conversation,setConversation]=useState<any>(null),[messages,setMessages]=useState<any[]>([]),[query,setQuery]=useState(''),[error,setError]=useState(''),[live,setLive]=useState(false),[checking,setChecking]=useState(false),[hasMore,setHasMore]=useState(false),[loading,setLoading]=useState(true),[visibleCount,setVisibleCount]=useState(3),[listBusy,setListBusy]=useState(false);
- const selectedRef=useRef(selected),bottom=useRef<HTMLDivElement>(null),seen=useRef<Record<string,number>>({}),queryRef=useRef(query),loadSequence=useRef(0),mounted=useRef(true);selectedRef.current=selected;queryRef.current=query;
+ const selectedRef=useRef(selected),bottom=useRef<HTMLDivElement>(null),seen=useRef<Record<string,number>>({}),queryRef=useRef(query),loadSequence=useRef(0),mounted=useRef(true),onChangeRef=useRef(onChange);
+ selectedRef.current=selected;queryRef.current=query;onChangeRef.current=onChange;
  const load=useCallback(async()=>{
   const sequence=++loadSequence.current;
   const search=queryRef.current;
@@ -19,15 +20,62 @@ export default function WhatsAppInbox({compact=false,initialId,onOpen,openInquir
   try{
    const result=await api('/api/whatsapp?q='+encodeURIComponent(search));
    if(mounted.current&&sequence===loadSequence.current&&search===queryRef.current){setData(result);setError('');}
+   return true;
   }catch(e:any){
    if(mounted.current&&sequence===loadSequence.current)setError(e.message);
+   return false;
   }finally{
    if(mounted.current&&sequence===loadSequence.current){setListBusy(false);setLoading(false);}
   }
  },[]);
  const thread=useCallback(async(id:string,older?:number)=>{try{const d=await api('/api/whatsapp?conversation='+encodeURIComponent(id)+(older?'&before='+older:''));if(selectedRef.current!==id||!mounted.current)return;setConversation(d.conversation);setMessages(old=>{const map=new Map(old.map(x=>[x.id,x]));for(const m of d.messages)map.set(m.id,m);return [...map.values()].sort((a,b)=>a.timestamp-b.timestamp||a.seq-b.seq);});if(older||!seen.current[id])setHasMore(d.messages.length===50);const max=Math.max(0,...d.messages.map((m:any)=>m.seq));if(max>(seen.current[id]||0)&&!older){seen.current[id]=max;await api('/api/whatsapp',{action:'read',conversationId:id,upToSeq:max});await load();}}catch(e:any){if(selectedRef.current===id)setError(e.message);}},[load]);
- useEffect(()=>{mounted.current=true;load();const events=new EventSource('/api/whatsapp/events');events.onopen=()=>setLive(true);events.addEventListener('change',()=>{setLive(true);load();if(selectedRef.current&&!compact)thread(selectedRef.current);onChange?.();});events.onerror=()=>setLive(false);const timer=setInterval(()=>{if(document.visibilityState==='visible'){load();if(selectedRef.current&&!compact)thread(selectedRef.current);}},15000);return()=>{mounted.current=false;clearInterval(timer);events.close();};},[load,thread,compact]);
- useEffect(()=>{const timer=setTimeout(()=>load(),250);return()=>clearTimeout(timer);},[query,load]);
+ useEffect(()=>{
+  mounted.current=true;
+  let disposed=false,polling=false,lastRevision:number|undefined,lastRefresh=0;
+  const poll=async()=>{
+   if(disposed||polling||document.visibilityState!=='visible')return;
+   polling=true;
+   try{
+    const response=await fetch('/api/whatsapp/events',{cache:'no-store',headers:{Accept:'application/json'}});
+    if(disposed)return;
+    if(response.status===401){window.dispatchEvent(new Event('hub-session-expired'));return;}
+    if(!response.ok)throw new Error('WhatsApp updates are temporarily unavailable.');
+    const payload=await response.json();
+    if(!payload||typeof payload!=='object'||!('revision' in payload)||typeof payload.revision!=='number')throw new Error('Invalid WhatsApp revision.');
+    const {revision}=payload;
+    if(disposed)return;
+    setLive(true);
+    const changed=lastRevision!==undefined&&revision!==lastRevision;
+    if(lastRevision===undefined||changed||Date.now()-lastRefresh>=60000){
+     const id=selectedRef.current;
+     const [loaded]=await Promise.all([load(),id&&!compact&&thread(id)]);
+     if(disposed)return;
+     if(loaded){
+      lastRefresh=Date.now();
+      lastRevision=revision;
+      if(changed)onChangeRef.current?.();
+     }
+    }
+   }catch{
+    if(!disposed){
+     setLive(false);
+     if(Date.now()-lastRefresh>=60000){
+      lastRefresh=Date.now();
+      await load();
+     }
+    }
+   }finally{polling=false;}
+  };
+  void poll();
+  const timer=setInterval(poll,8000);
+  document.addEventListener('visibilitychange',poll);
+  return()=>{disposed=true;mounted.current=false;clearInterval(timer);document.removeEventListener('visibilitychange',poll);};
+ },[load,thread,compact]);
+ useEffect(()=>{
+  if(!query&&loadSequence.current===0)return;
+  const timer=setTimeout(load,250);
+  return()=>clearTimeout(timer);
+ },[query,load]);
  useEffect(()=>{if(selected&&!compact){setMessages([]);setConversation(null);thread(selected);}},[selected,compact,thread]);
  useEffect(()=>{bottom.current?.scrollIntoView({block:'nearest'});},[messages.length]);
  const choose=(id:string)=>{if(compact){onOpen?.(id);return;}setSelected(id);};
