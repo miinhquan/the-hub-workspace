@@ -12,6 +12,7 @@
   "d1_databases": [{"binding":"DB","database_name":"the-hub-workspace","database_id":"3914126c-b2bb-4391-829d-4168e866bf3d","migrations_dir":"../drizzle"}],
   "r2_buckets": [{"binding":"BUCKET","bucket_name":"the-hub-workspace-documents"}],
   "vars": {
+    "HUB_ARCHIVE_ON_SCHEDULE":"true",
     "WHATSAPP_PHONE_NUMBER_ID":"1419832964551265",
     "WHATSAPP_BUSINESS_ACCOUNT_ID":"1101695832558898",
     "WHATSAPP_GRAPH_VERSION":"v25.0"
