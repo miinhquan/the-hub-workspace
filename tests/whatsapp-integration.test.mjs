@@ -35,3 +35,26 @@ assert.equal((await (await streamRoute.GET(revisionRequest())).json()).revision,
 assert.match(await (await reconnect()).text(),/event: change/);
 loggedIn=false;assert.equal((await streamRoute.GET(new Request(url+'/events'))).status,401);assert.equal((await streamRoute.GET(revisionRequest())).status,401);assert.equal((await api.GET(new Request(url))).status,401);assert.equal((await post({action:'send'})).status,401);loggedIn=true;role='staff';assert.equal((await post({action:'check'})).status,200);assert.equal(sql.prepare("SELECT COUNT(*) n FROM records WHERE kind IN ('bookings','payments','transactions')").get().n,0);
 assert.equal((await (await api.GET(new Request(url+'?conversation='+c.id))).json()).messages.length,count('wa_messages'));assert.equal((await (await api.GET(new Request(url+'?q=QA'))).json()).conversations.length,1);console.log('PASS: actual SQLite persistence + webhook verify/HMAC, atomic dedupe, customers/inquiries, active reuse, restore, closed/new inquiry, history/contact exclusion, app echoes/media, unread/read, authenticated APIs, receive-only send rejection, optional access token, Graph POST disabled, delivery reordering + dedupe, revision polling, SSE reconnect + unauthenticated rejection, no finance effects. Meta calls are MOCKED.');
+
+const listChats=async(search='')=>(await api.GET(new Request(url+'?q='+encodeURIComponent(search)))).json();
+const secondPhone='84900000002';
+const secondInbound={...value,contacts:[{wa_id:secondPhone,profile:{name:'Second test chat'}}],messages:[{...value.messages[0],id:'wamid.bulk-second',from:secondPhone}]};
+await deliver(payload('messages',secondInbound));
+const snapshot=await listChats('Second test chat');
+assert.equal(snapshot.conversations.length,1);
+assert.ok(snapshot.unreadThrough>0);
+const markRead=()=>post({action:'readAll',upToSeq:snapshot.unreadThrough});
+loggedIn=false;
+assert.equal((await markRead()).status,401);
+loggedIn=true;
+assert.equal((await post({action:'readAll',upToSeq:-1})).status,400);
+await deliver(payload('messages',{...value,messages:[{...value.messages[0],id:'wamid.bulk-later'}]}));
+assert.equal((await markRead()).status,200);
+assert.equal((await markRead()).status,200);
+const afterRead=await listChats();
+assert.equal(afterRead.conversations.find(row=>row.phone===secondPhone).unread,0);
+assert.equal(afterRead.conversations.find(row=>row.id===c.id).unread,1);
+assert.ok(afterRead.unreadThrough>snapshot.unreadThrough);
+assert.equal((await post({action:'readAll',upToSeq:afterRead.unreadThrough})).status,200);
+assert.equal((await listChats()).unreadThrough,null);
+console.log('PASS: mark all chats read across search results, preserve newer arrivals, handle retries and reject unauthenticated requests.');
