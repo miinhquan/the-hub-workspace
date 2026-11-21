@@ -11,6 +11,7 @@ const time=(ms:number,locale='en-GB')=>ms?new Date(ms).toLocaleString(locale,{ti
 async function api(url:string,body?:any){const r=await fetch(url,{cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const d:any=await r.json();if(r.status===401)window.dispatchEvent(new Event('hub-session-expired'));if(!r.ok)throw Object.assign(new Error(d.error||'WhatsApp request failed'),{code:d.code});return d;}
 export default function WhatsAppInbox({compact=false,initialId,onOpen,openInquiry,onChange}:{compact?:boolean;initialId?:string;onOpen?:(id?:string)=>void;openInquiry:(id:string)=>void;onChange?:()=>void}){const {t,locale}=useLocale();
  const [data,setData]=useState<any>({conversations:[],config:{missing:[]}}),[selected,setSelected]=useState(initialId||''),[conversation,setConversation]=useState<any>(null),[messages,setMessages]=useState<any[]>([]),[query,setQuery]=useState(''),[error,setError]=useState(''),[live,setLive]=useState(false),[checking,setChecking]=useState(false),[hasMore,setHasMore]=useState(false),[loading,setLoading]=useState(true),[visibleCount,setVisibleCount]=useState(3),[listBusy,setListBusy]=useState(false);
+ const [markingRead,setMarkingRead]=useState(false);
  const selectedRef=useRef(selected),bottom=useRef<HTMLDivElement>(null),seen=useRef<Record<string,number>>({}),queryRef=useRef(query),loadSequence=useRef(0),mounted=useRef(true),onChangeRef=useRef(onChange);
  selectedRef.current=selected;queryRef.current=query;onChangeRef.current=onChange;
  const load=useCallback(async()=>{
@@ -28,6 +29,18 @@ export default function WhatsAppInbox({compact=false,initialId,onOpen,openInquir
    if(mounted.current&&sequence===loadSequence.current){setListBusy(false);setLoading(false);}
   }
  },[]);
+ async function markAllRead(){
+  if(markingRead||!data.unreadThrough)return;
+  setMarkingRead(true);
+  try{
+   await api('/api/whatsapp',{action:'readAll',upToSeq:data.unreadThrough});
+   if(mounted.current)await load();
+  }catch(e:any){
+   if(mounted.current)setError(e.message);
+  }finally{
+   if(mounted.current)setMarkingRead(false);
+  }
+ }
  const thread=useCallback(async(id:string,older?:number)=>{try{const d=await api('/api/whatsapp?conversation='+encodeURIComponent(id)+(older?'&before='+older:''));if(selectedRef.current!==id||!mounted.current)return;setConversation(d.conversation);setMessages(old=>{const map=new Map(old.map(x=>[x.id,x]));for(const m of d.messages)map.set(m.id,m);return [...map.values()].sort((a,b)=>a.timestamp-b.timestamp||a.seq-b.seq);});if(older||!seen.current[id])setHasMore(d.messages.length===50);const max=Math.max(0,...d.messages.map((m:any)=>m.seq));if(max>(seen.current[id]||0)&&!older){seen.current[id]=max;await api('/api/whatsapp',{action:'read',conversationId:id,upToSeq:max});await load();}}catch(e:any){if(selectedRef.current===id)setError(e.message);}},[load]);
  useEffect(()=>{
   mounted.current=true;
@@ -81,7 +94,9 @@ export default function WhatsAppInbox({compact=false,initialId,onOpen,openInquir
  const choose=(id:string)=>{if(compact){onOpen?.(id);return;}setSelected(id);};
  const coex=data.connection?.coexistence,rows=data.conversations;
  const visibleRows=compact?rows.slice(0,visibleCount):rows;
- return <section className={'desk-tile wa-inbox '+(compact?'wa-compact':'wa-full')}><header className="wa-title"><div><span className="tile-symbol wa"><MessageSquare size={20}/></span><h2>WhatsApp</h2></div><span className={'wa-live '+(live?'active':'')}>{live?t("Live updates"):t("Reconnecting…")}</span><button disabled={listBusy} aria-label={t("Refresh WhatsApp")} title={t("Refresh WhatsApp")} onClick={()=>{load();if(selected&&!compact)thread(selected);}}><RefreshCw size={16} className={listBusy?'spin':''}/></button>{compact&&<button onClick={()=>onOpen?.()}>{t("Inbox")} <ArrowUpRight size={14}/></button>}</header>
+ return <section className={'desk-tile wa-inbox '+(compact?'wa-compact':'wa-full')}><header className="wa-title"><div><span className="tile-symbol wa"><MessageSquare size={20}/></span><h2>WhatsApp</h2></div><span className={'wa-live '+(live?'active':'')}>{live?t("Live updates"):t("Reconnecting…")}</span>
+ <button type="button" disabled={markingRead||!data.unreadThrough} aria-label={t("Mark all chats as read")} title={t("Mark all chats as read")} onClick={markAllRead}><CheckCheck size={16} aria-hidden="true"/></button>
+ <button disabled={listBusy} aria-label={t("Refresh WhatsApp")} title={t("Refresh WhatsApp")} onClick={()=>{load();if(selected&&!compact)thread(selected);}}><RefreshCw size={16} className={listBusy?'spin':''}/></button>{compact&&<button onClick={()=>onOpen?.()}>{t("Inbox")} <ArrowUpRight size={14}/></button>}</header>
  {!compact&&<div className="wa-connection"><span>{data.config.receiveConfigured?t("Webhook ready"):t("Setup incomplete")}{t("· Coexistence:")} {coex==='confirmed'?t("verified by Meta"):coex==='not_enabled'?t("not enabled"):t("not verified")}</span>{data.canCheck&&<button disabled={checking||!data.config.checkConfigured} onClick={async()=>{setChecking(true);setError('');try{await api('/api/whatsapp',{action:'check'});await load();}catch(e:any){setError(e.message);}finally{setChecking(false);}}}>{checking?t("Checking…"):t("Check Meta connection")}</button>}{!data.config.checkConfigured&&<small>{t("Access token is optional — only needed for the Meta configuration check.")}</small>}{data.config.missing.length>0&&<small>{t("Missing server settings:")} {data.config.missing.join(', ')}</small>}{data.connection&&<small>{t("Last check:")} {time(data.connection.checkedAt,locale)}{t("· Version")} {data.connection.versionVerified?t("verified"):t("not verified")} · {data.connection.coexistenceNote}</small>}{data.lastEcho&&<small>{t("Latest Business app echo:")} {time(data.lastEcho.at,locale)}</small>}</div>}
  {error&&<div className="wa-error" role="alert"><AlertCircle size={15}/>{t(error)}</div>}
  <div className={'wa-layout '+(selected?'has-chat':'')}><div className="wa-sidebar"><label className="wa-search"><Search size={16}/><input placeholder={t("Search name or phone")} aria-label={t("Search WhatsApp conversations")} value={query} onChange={e=>{setQuery(e.target.value);setVisibleCount(3);}}/></label><div className="wa-conversations" id={compact?"wa-dashboard-conversations":undefined}>{visibleRows.map((c:any)=><button className={'wa-conversation '+(selected===c.id?'selected':'')} key={c.id} onClick={()=>choose(c.id)}><span className="wa-person">{(c.name||c.phone).slice(0,1).toUpperCase()}</span><span className="wa-person-details"><b title={contactLabel(c)}>{contactLabel(c)}</b><p>{c.preview||t("No message text")}</p><em>{t(c.inquiry_archived?'Archived':c.inquiry_status||'No active inquiry')}</em></span><span className="wa-person-meta"><time>{time(c.last_message_at,locale)}</time>{c.unread>0&&<strong>{c.unread}</strong>}</span></button>)}{!rows.length&&<div className="wa-empty"><MessageSquare size={30}/><b>{loading?t("Loading conversations…"):query?t("No matching conversations"):t("No conversations yet")}</b><p>{query?t("Try a name or full phone number."):t("Live customer messages will appear here after webhook setup. No sample customers are mixed into your records.")}</p>{compact&&<button onClick={()=>onOpen?.()}>{t("Open inbox / setup")} <ArrowUpRight size={14}/></button>}</div>}</div>{compact&&rows.length>3&&<footer className="list-controls">
